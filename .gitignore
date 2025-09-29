@@ -1,0 +1,14 @@
+__pycache__
+**/__pycache__/
+*.log
+# Environments
+.env
+.pyre/
+.vscode/
+.ipynb_checkpoints
+logs/
+.idea/
+
+# Mem-minus specific ignores
+log*
+conversation_history_*.json
