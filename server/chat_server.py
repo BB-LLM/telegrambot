@@ -16,6 +16,15 @@ from mem.memory.memory import Memory
 from mem.com.factory import LlmFactory
 from mem.vector_stores.prompts import NOVA_PROMPT
 
+# 导入情感主题检测模块
+from emotional.detector import detect_themes_and_tone, build_emotional_prompt
+
+# 导入性格分析模块
+from personality.tracker import PersonalityTracker
+from personality.profile import PersonalityProfile
+from personality.adjuster import PersonalityPromptAdjuster
+from personality.storage import PersonalityStorage
+
 # 加载环境变量
 def setup_logger():
     """设置日志记录器"""
@@ -43,7 +52,7 @@ def create_app() -> FastAPI:
                 "client": None,
                 "host": "",
                 "port": 6333,
-                "path": "/Users/zouwuhe/Desktop/src/telegrambot/wks/qdrant",
+                "path": "./wks/qdrant",
                 "url": "https://d8a17329-41df-49fc-811f-c5e762a2b12e.europe-west3-0.gcp.cloud.qdrant.io:6333",
                 "api_key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3MiOiJtIn0.zyODVTAKCSNpo0cBBh6yXMlf29A8nJAaz42KTTZP2hk",
                 "on_disk": False
@@ -65,7 +74,7 @@ def create_app() -> FastAPI:
             "config": {
                 "model": "doubao-embedding-text-240715",
                 "api_key": "8b2dce0f-ed36-4d2b-898a-14845cc496c1",
-                "openai_base_url": "ark",
+                "openai_base_url": "https://ark.cn-beijing.volces.com/api/v3",
                 "embedding_dims": 2560
             }
         },
@@ -78,6 +87,11 @@ def create_app() -> FastAPI:
     
     # 模型配置
     model_configs = {
+        "glm-4-flash": {
+            "api_key": "0031af15104f4a49bb70e1e6bf1e4d72.nybmwLU1gf7U41fh",
+            "model": "glm-4-flash",
+            "openai_base_url": "https://open.bigmodel.cn/api/paas/v4/"
+        },
         "doubao-character": {
             "api_key": "8b2dce0f-ed36-4d2b-898a-14845cc496c1",
             "model": "doubao-1-5-pro-32k-character-250715",
@@ -90,6 +104,9 @@ def create_app() -> FastAPI:
         }
     }
     
+    # 初始化性格存储
+    PERSONALITY_STORAGE = PersonalityStorage(MEMORY_INSTANCE)
+    
     # 请求模型定义
     class Message(BaseModel):
         role: str = Field(..., description="Role of the message (user or assistant).")
@@ -99,7 +116,7 @@ def create_app() -> FastAPI:
     class ChatRequest(BaseModel):
         user_id: str = Field(..., description="User ID")
         message: str = Field(..., description="User's message")
-        model: str = Field(default="doubao-character", description="Model to use")
+        model: str = Field(default="glm-4-flash", description="Model to use")
         persona: Optional[str] = Field(default="", description="Bot persona")
         frequency: int = Field(default=1, description="Memory extraction frequency")
         summary_frequency: int = Field(default=10, description="Summary frequency")
@@ -184,9 +201,80 @@ def create_app() -> FastAPI:
                 f"\n\n[style notes Nova should mirror or avoid]：\n{memories['style']}" + \
                 f"\n\n[tiny commitments the PLAYER made or agreed to]：\n{memories['commitments']}"
             
-            # 构建系统提示
-            system_prompt = "You are a role-playing expert. Based on the provided memory information, you will now assume the following role to chat with the user.\n" \
+            # ========== 情感主题检测 ==========
+            # 只检测当前消息的情感主题（不包含历史记忆，避免干扰）
+            emotional_result = detect_themes_and_tone(
+                memory_text="",  # 不传入历史记忆
+                current_message=user_message
+            )
+            themes = emotional_result["themes"]
+            emotional_tone = emotional_result["emotional_tone"]
+            
+            # 打印情感检测结果到终端和日志
+            print("\n" + "="*60)
+            print(f"[EMOTIONAL DETECTION] User: {user_id}")
+            print(f"Message: {user_message[:100]}..." if len(user_message) > 100 else f"Message: {user_message}")
+            print(f"Detected Themes: {', '.join(themes)}")
+            print(f"Emotional Tone: {emotional_tone.lower()}")
+            print("="*60 + "\n")
+            
+            logger.info(f"Emotional Themes | User {user_id} | Themes: {themes} | Tone: {emotional_tone.lower()}")
+            
+            # ========== 性格分析与跟踪 ==========
+            # 加载现有性格档案
+            personality_data = PERSONALITY_STORAGE.load(user_id)
+            
+            # 创建临时LLM客户端用于性格分析
+            analysis_llm = LlmFactory.create("openai", config=model_configs[chat_request.model])
+            personality_tracker = PersonalityTracker(analysis_llm)
+            
+            # 跟踪和评估（如果需要）
+            updated_personality = personality_tracker.track_and_assess(
+                user_id=user_id,
+                chat_history=chat_history,
+                existing_personality=personality_data
+            )
+            
+            # 如果更新了，生成完整档案并保存
+            if updated_personality:
+                personality_data = PersonalityProfile.generate_from_big5(updated_personality)
+                PERSONALITY_STORAGE.save(personality_data)
+                
+                # 打印性格评估结果到终端和日志
+                print("\n" + "="*60)
+                print(f"[PERSONALITY ASSESSMENT] User: {user_id}")
+                print(f"Total Exchanges: {personality_data.total_exchanges}")
+                print(f"Big Five Scores:")
+                big5 = personality_data.big5_assessment
+                print(f"  Openness: {big5.openness.score}% (confidence: {big5.openness.confidence}%)")
+                print(f"  Conscientiousness: {big5.conscientiousness.score}% (confidence: {big5.conscientiousness.confidence}%)")
+                print(f"  Extraversion: {big5.extraversion.score}% (confidence: {big5.extraversion.confidence}%)")
+                print(f"  Agreeableness: {big5.agreeableness.score}% (confidence: {big5.agreeableness.confidence}%)")
+                print(f"  Neuroticism: {big5.neuroticism.score}% (confidence: {big5.neuroticism.confidence}%)")
+                print(f"Primary Traits: {', '.join(personality_data.primary_traits[:3])}")
+                print(f"Assessment Complete: {personality_data.big5_assessment.is_complete(min_confidence=60)}")
+                print("="*60 + "\n")
+                
+                logger.info(f"Personality Assessment | User {user_id} | "
+                           f"Exchanges: {personality_data.total_exchanges} | "
+                           f"Traits: {', '.join(personality_data.primary_traits[:3])}")
+            
+            # 构建基础系统提示
+            base_system_prompt = "You are a role-playing expert. Based on the provided memory information, you will now assume the following role to chat with the user.\n" \
                 + NOVA_PROMPT + "\n" + memories_str
+            
+            # 添加情感主题指令
+            emotional_prompt = build_emotional_prompt(themes, emotional_tone)
+            system_prompt = base_system_prompt + emotional_prompt
+            
+            # 根据性格档案调整系统提示
+            if personality_data and personality_data.big5_assessment.is_complete(min_confidence=40):
+                system_prompt = PersonalityPromptAdjuster.adjust_system_prompt(
+                    system_prompt,
+                    personality_data
+                )
+                adaptation_summary = PersonalityPromptAdjuster.get_adaptation_summary(personality_data)
+                logger.info(f"Personality Adaptation | User {user_id} | {adaptation_summary}")
             
             # 准备发送给LLM的消息（只取最近10条消息）
             messages_for_llm = [{"role": "system", "content": system_prompt}] + chat_history[-20:]
@@ -210,8 +298,28 @@ def create_app() -> FastAPI:
             # 记录响应日志
             logger.info(f"Assistant response to user {user_id}: {response}")
             
-            # 准备结果
-            results = {'response': response, "used_memory": memories_str}
+            # 打印AI回复预览到终端
+            response_preview = response[:200] + "..." if len(response) > 200 else response
+            print(f"[AI RESPONSE] {response_preview}\n")
+            
+            # 准备结果（包含情感主题和性格状态信息）
+            results = {
+                'response': response, 
+                "used_memory": memories_str,
+                "emotional_themes": {
+                    "themes": themes,
+                    "tone": emotional_tone
+                }
+            }
+            
+            # 添加性格状态信息
+            if personality_data:
+                results["personality_state"] = {
+                    "total_exchanges": personality_data.total_exchanges,
+                    "primary_traits": personality_data.primary_traits[:3],
+                    "emotional_state": personality_data.emotional_state,
+                    "assessment_complete": personality_data.big5_assessment.is_complete(min_confidence=60)
+                }
             
             # 根据频率提取记忆
             if len(chat_history) // 2 % chat_request.frequency == 0:

@@ -1,6 +1,11 @@
 import re
 
-from mem.vector_stores.prompts import FACT_RETRIEVAL_PROMPT, PROFILE_RETRIEVAL_PROMPT
+from mem.vector_stores.prompts import (
+    FACT_RETRIEVAL_PROMPT,
+    PROFILE_RETRIEVAL_PROMPT,
+    STYLE_NOTE_PROMPT,
+    COMMITMENT_TRACKER_PROMPT
+)
 
 
 def get_fact_retrieval_messages(message, history=None):
@@ -15,6 +20,20 @@ def get_profile_retrieval_messages(message, history=None):
         return PROFILE_RETRIEVAL_PROMPT, f"History:{history}\n\nInput:{message}\nOutput:"
     else:
         return PROFILE_RETRIEVAL_PROMPT, f"Input:{message}\nOutput:"
+
+
+def get_style_retrieval_messages(message, history=None):
+    if history:
+        return STYLE_NOTE_PROMPT, f"History:{history}\n\nInput:{message}\nOutput:"
+    else:
+        return STYLE_NOTE_PROMPT, f"Input:{message}\nOutput:"
+
+
+def get_commitments_retrieval_messages(message, history=None):
+    if history:
+        return COMMITMENT_TRACKER_PROMPT, f"History:{history}\n\nInput:{message}\nOutput:"
+    else:
+        return COMMITMENT_TRACKER_PROMPT, f"Input:{message}\nOutput:"
 
 
 

@@ -40,13 +40,19 @@ else:
 # 获取最新的记忆数据（从 FastAPI 获取）
 def get_memories(user_id):
     try:
-        response = requests.get(f"http://localhost:8000/memories?user_id={user_id}")  # 获取所有记忆的 API
+        # 修复：使用路径参数而不是查询参数
+        response = requests.get(f"http://localhost:8082/memories/{user_id}")  # 获取所有记忆的 API
         if response.status_code == 200:
-            results = response.json().get("results", [])
-            relations = response.json().get("relations", [])
-            if results:
-                results = [{'memory': x['memory'], 'created_at': x['created_at'], 'updated_at': x['updated_at'], 'metadata': x.get('metadata', {})} if x[
-                    'updated_at'] else {'memory': x['memory'], 'created_at': x['created_at'], 'metadata': x['metadata']} for x in results]
+            json_data = response.json()
+            # 后端返回的格式已经分类好了
+            profile = json_data.get("profile", [])
+            facts = json_data.get("facts", [])
+            style = json_data.get("style", [])
+            commitments = json_data.get("commitments", [])
+            relations = json_data.get("relations", [])
+
+            # 合并所有记忆
+            results = profile + facts + style + commitments
             return results, relations
         else:
             st.error("Error: Unable to fetch memories from the backend.")
@@ -79,8 +85,8 @@ with st.sidebar:
         st.session_state.user_input = user_input
     st.session_state["memories"], st.session_state["relations"] = get_memories(user_id)
     print(f"memories: {st.session_state['memories']}")
-    # 模型选择
-    model = st.selectbox("models", ["doubao-character", "deepseek-v3.1"])
+    # 模型选择（默认使用免费的 ChatGLM glm-4-flash）
+    model = st.selectbox("models", ["glm-4-flash", "doubao-character", "deepseek-v3.1"])
 
     # 人设文本输入框
     persona = st.text_area("Persona", """
@@ -111,15 +117,14 @@ if prompt := st.chat_input():
     st.session_state.messages.append(
         {"role": "user", "content": prompt, "time": datetime.now().strftime("%Y-%m-%d")})
     st.chat_message("user").write(prompt)
-    messages = st.session_state.messages
 
     # 发送请求，获取聊天回复
     try:
         response = requests.post(
-            "http://localhost:8000/chat",  # API 地址
+            "http://localhost:8082/chat",  # API 地址
             json={
                 "user_id": user_id,
-                "messages": messages,
+                "message": prompt,  # 修复：后端期望的是 message 而不是 messages
                 "model": model,
                 "persona": persona,
                 "frequency": frequency,

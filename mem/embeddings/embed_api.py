@@ -9,7 +9,7 @@ def embedding(
     ) -> List[float]:
     """文本到embedding 的 api"""
 
-    url = 'http://xxx/v1/embeddings'
+    url = 'http://embedding-mem-hzailab-iserving.tmax.netease.com/v1/embeddings'
     headers = {"Content-Type": "application/json"}
 
     body = {

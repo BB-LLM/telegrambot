@@ -1,4 +1,4 @@
-FROM xxx/mirror_docker.io/library/python:3.10.6
+FROM ncr.nie.netease.com/mirror_docker.io/library/python:3.10.6
 
 # CMAKE
 WORKDIR /tmp
