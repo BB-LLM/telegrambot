@@ -113,7 +113,6 @@ class PersonalityData:
     primary_traits: List[str] = field(default_factory=list)  # 主要特质
     interests: List[str] = field(default_factory=list)  # 兴趣爱好
     emotional_state: str = "balanced"  # melancholic, upbeat, balanced
-    assessment_method: str = "regular"  # 评估方法: regular, pocket_themes
     
     def to_dict(self):
         return {
@@ -126,8 +125,7 @@ class PersonalityData:
             "last_assessment": self.last_assessment,
             "primary_traits": self.primary_traits,
             "interests": self.interests,
-            "emotional_state": self.emotional_state,
-            "assessment_method": self.assessment_method
+            "emotional_state": self.emotional_state
         }
     
     @classmethod
@@ -152,7 +150,6 @@ class PersonalityData:
             last_assessment=data.get("last_assessment"),
             primary_traits=data.get("primary_traits", []),
             interests=data.get("interests", []),
-            emotional_state=data.get("emotional_state", "balanced"),
-            assessment_method=data.get("assessment_method", "regular")
+            emotional_state=data.get("emotional_state", "balanced")
         )
 

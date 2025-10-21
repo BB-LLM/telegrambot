@@ -1,6 +1,8 @@
 """
 Personality Prompt Adjuster
 根据用户性格调整AI的system prompt
+
+参考: pocket-souls-agents generate_soul_system_prompt
 """
 
 from typing import Optional

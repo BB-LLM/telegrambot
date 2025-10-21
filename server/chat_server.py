@@ -24,29 +24,6 @@ from personality.tracker import PersonalityTracker
 from personality.profile import PersonalityProfile
 from personality.adjuster import PersonalityPromptAdjuster
 from personality.storage import PersonalityStorage
-from personality.pocket_themes import PocketThemeAssessment
-
-# 全局变量
-POCKET_ASSESSMENT = None
-
-# 模型配置
-MODEL_CONFIGS = {
-    "glm-4-flash": {
-        "api_key": "0031af15104f4a49bb70e1e6bf1e4d72.nybmwLU1gf7U41fh",
-        "model": "glm-4-flash",
-        "openai_base_url": "https://open.bigmodel.cn/api/paas/v4/"
-    },
-    "doubao-character": {
-        "api_key": "8b2dce0f-ed36-4d2b-898a-14845cc496c1",
-        "model": "doubao-1-5-pro-32k-character-250715",
-        "openai_base_url": "https://ark.cn-beijing.volces.com/api/v3"
-    },
-    "deepseek-v3.1": {
-        "api_key": "8b2dce0f-ed36-4d2b-898a-14845cc496c1",
-        "model": "deepseek-v3-1-250821",
-        "openai_base_url": "https://ark.cn-beijing.volces.com/api/v3"
-    }
-}
 
 # 加载环境变量
 def setup_logger():
@@ -72,11 +49,13 @@ def create_app() -> FastAPI:
             "config": {
                 "collection_name": "memory_test",
                 "embedding_model_dims": 2560,
-                "path": "./wks/qdrant",  # 使用本地文件存储
-                "on_disk": True  # 持久化到磁盘
-                # 注释掉远程配置，使用本地存储
-                # "url": "https://...",
-                # "api_key": "...",
+                "client": None,
+                "host": "",
+                "port": 6333,
+                "path": "./wks/qdrant",
+                "url": "https://d8a17329-41df-49fc-811f-c5e762a2b12e.europe-west3-0.gcp.cloud.qdrant.io:6333",
+                "api_key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3MiOiJtIn0.zyODVTAKCSNpo0cBBh6yXMlf29A8nJAaz42KTTZP2hk",
+                "on_disk": False
             }
         },
         "llm": {
@@ -106,6 +85,24 @@ def create_app() -> FastAPI:
     config = MemoryConfig(**config)
     MEMORY_INSTANCE = Memory(config)
     
+    # 模型配置
+    model_configs = {
+        "glm-4-flash": {
+            "api_key": "0031af15104f4a49bb70e1e6bf1e4d72.nybmwLU1gf7U41fh",
+            "model": "glm-4-flash",
+            "openai_base_url": "https://open.bigmodel.cn/api/paas/v4/"
+        },
+        "doubao-character": {
+            "api_key": "8b2dce0f-ed36-4d2b-898a-14845cc496c1",
+            "model": "doubao-1-5-pro-32k-character-250715",
+            "openai_base_url": "https://ark.cn-beijing.volces.com/api/v3"
+        },
+        "deepseek-v3.1": {
+            "api_key": "8b2dce0f-ed36-4d2b-898a-14845cc496c1",
+            "model": "deepseek-v3-1-250821",
+            "openai_base_url": "https://ark.cn-beijing.volces.com/api/v3"
+        }
+    }
     
     # 初始化性格存储
     PERSONALITY_STORAGE = PersonalityStorage(MEMORY_INSTANCE)
@@ -123,8 +120,6 @@ def create_app() -> FastAPI:
         persona: Optional[str] = Field(default="", description="Bot persona")
         frequency: int = Field(default=1, description="Memory extraction frequency")
         summary_frequency: int = Field(default=10, description="Summary frequency")
-        scene: Optional[str] = Field(default="default", description="Selected situation scene (default/creative/contemplative/connection/growth/reflection)")
-        assessment_mode: Optional[str] = Field(default="normal", description="Assessment mode: normal or pocket_themes")
     
     # 帮助函数
     def get_or_create_chat_history(user_id: str) -> List[Dict]:
@@ -139,20 +134,18 @@ def create_app() -> FastAPI:
             "user_id": chat_request.user_id,
         }
         
-        # 简化记忆检索，减少并发查询
+        # 并发获取不同类型的记忆
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            # 只获取最重要的facts记忆
-            params.update({"filters": {"type": 'facts'}, "limit": 2})
+            params.update({"filters": {"type": 'facts'}, "limit": 3})
             future_memories = executor.submit(MEMORY_INSTANCE.search, chat_request.message, **params)
             
-            # 其他记忆类型减少查询量
-            params.update({"filters": {"type": 'profile'}, "limit": 5})
+            params.update({"filters": {"type": 'profile'}, "limit": 100})
             future_profile = executor.submit(MEMORY_INSTANCE.get_all, **params)
             
-            params.update({"filters": {"type": 'style'}, "limit": 5})
+            params.update({"filters": {"type": 'style'}, "limit": 100})
             future_style = executor.submit(MEMORY_INSTANCE.get_all, **params)
             
-            params.update({"filters": {"type": 'commitments'}, "limit": 5})
+            params.update({"filters": {"type": 'commitments'}, "limit": 100})
             future_commitments = executor.submit(MEMORY_INSTANCE.get_all, **params)
             
             concurrent.futures.wait([future_memories, future_profile, future_style, future_commitments])
@@ -172,82 +165,6 @@ def create_app() -> FastAPI:
         return result
     
     # API 端点
-    @app.post("/start_pocket_assessment", summary="Start Pocket theme assessment")
-    def start_pocket_assessment(user_id: str, model: str = "glm-4-flash"):
-        """开始Pocket五大主题性格评估"""
-        try:
-            # 初始化Pocket评估器（如果还没有）
-            global POCKET_ASSESSMENT
-            if POCKET_ASSESSMENT is None:
-                analysis_llm = LlmFactory.create("openai", config=MODEL_CONFIGS[model])
-                POCKET_ASSESSMENT = PocketThemeAssessment(analysis_llm)
-            
-            # 开始评估
-            result = POCKET_ASSESSMENT.start_assessment(user_id)
-            
-            logger.info(f"Started Pocket assessment for user {user_id}")
-            return result
-            
-        except Exception as e:
-            logger.exception(f"Error starting Pocket assessment: {str(e)}")
-            raise HTTPException(status_code=500, detail=str(e))
-    
-    @app.post("/pocket_assessment_response", summary="Process Pocket assessment response")
-    def pocket_assessment_response(user_id: str, response: str, model: str = "glm-4-flash"):
-        """处理Pocket评估回答"""
-        try:
-            # 确保Pocket评估器已初始化
-            global POCKET_ASSESSMENT
-            if POCKET_ASSESSMENT is None:
-                analysis_llm = LlmFactory.create("openai", config=MODEL_CONFIGS[model])
-                POCKET_ASSESSMENT = PocketThemeAssessment(analysis_llm)
-            
-            # 处理回答
-            result = POCKET_ASSESSMENT.process_response(user_id, response)
-            
-            # 如果评估完成，生成性格档案
-            if result.get("status") == "completed":
-                personality_data = POCKET_ASSESSMENT.get_personality_data(user_id)
-                if personality_data:
-                    # 生成完整档案
-                    complete_profile = PersonalityProfile.generate_from_big5(personality_data)
-                    PERSONALITY_STORAGE.save(complete_profile)
-                    
-                    # 添加到结果中
-                    result["personality_profile"] = {
-                        "primary_traits": complete_profile.primary_traits,
-                        "emotional_state": complete_profile.emotional_state,
-                        "big5_scores": {
-                            "openness": complete_profile.big5_assessment.openness.score,
-                            "conscientiousness": complete_profile.big5_assessment.conscientiousness.score,
-                            "extraversion": complete_profile.big5_assessment.extraversion.score,
-                            "agreeableness": complete_profile.big5_assessment.agreeableness.score,
-                            "neuroticism": complete_profile.big5_assessment.neuroticism.score
-                        }
-                    }
-                    
-                    logger.info(f"Pocket assessment completed for user {user_id}")
-            
-            return result
-            
-        except Exception as e:
-            logger.exception(f"Error processing Pocket assessment response: {str(e)}")
-            raise HTTPException(status_code=500, detail=str(e))
-    
-    @app.get("/pocket_assessment_status/{user_id}", summary="Get Pocket assessment status")
-    def get_pocket_assessment_status(user_id: str):
-        """获取Pocket评估状态"""
-        try:
-            global POCKET_ASSESSMENT
-            if POCKET_ASSESSMENT is None:
-                return {"status": "not_started"}
-            
-            return POCKET_ASSESSMENT.get_assessment_status(user_id)
-            
-        except Exception as e:
-            logger.exception(f"Error getting Pocket assessment status: {str(e)}")
-            raise HTTPException(status_code=500, detail=str(e))
-    
     @app.post("/chat", summary="Chat with the bot")
     def chat(chat_request: ChatRequest):
         """与机器人聊天并管理聊天历史"""
@@ -257,7 +174,7 @@ def create_app() -> FastAPI:
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             
             # 检查模型是否支持
-            if chat_request.model not in MODEL_CONFIGS:
+            if chat_request.model not in model_configs:
                 raise HTTPException(status_code=400, detail=f"Model {chat_request.model} not supported")
             
             # 获取或创建聊天历史
@@ -284,36 +201,14 @@ def create_app() -> FastAPI:
                 f"\n\n[style notes Nova should mirror or avoid]：\n{memories['style']}" + \
                 f"\n\n[tiny commitments the PLAYER made or agreed to]：\n{memories['commitments']}"
             
-            # ========== 场景选择检测 ==========
-            scene_label = "Default (No Scene)"
-            if chat_request.scene and chat_request.scene != "default":
-                try:
-                    from scenes.configs import SCENE_PRESETS
-                    scene_preset = SCENE_PRESETS.get(chat_request.scene, {})
-                    scene_label = scene_preset.get("label", chat_request.scene)
-                except Exception as _:
-                    pass
-            
-            # 打印场景选择结果到终端和日志
-            print("\n" + "="*60)
-            print(f"[SCENE SELECTION] User: {user_id}")
-            print(f"Selected Scene: {scene_label}")
-            print("="*60 + "\n")
-            
-            logger.info(f"Scene Selection | User {user_id} | Selected Scene: {scene_label}")
-            
             # ========== 情感主题检测 ==========
-            # 简化情感检测，只在消息较长时进行
-            if len(user_message) > 20:  # 只对较长的消息进行情感检测
-                emotional_result = detect_themes_and_tone(
-                    memory_text="",  # 不传入历史记忆
-                    current_message=user_message
-                )
-                themes = emotional_result["themes"]
-                emotional_tone = emotional_result["emotional_tone"]
-            else:
-                themes = []
-                emotional_tone = "neutral"
+            # 只检测当前消息的情感主题（不包含历史记忆，避免干扰）
+            emotional_result = detect_themes_and_tone(
+                memory_text="",  # 不传入历史记忆
+                current_message=user_message
+            )
+            themes = emotional_result["themes"]
+            emotional_tone = emotional_result["emotional_tone"]
             
             # 打印情感检测结果到终端和日志
             print("\n" + "="*60)
@@ -326,47 +221,51 @@ def create_app() -> FastAPI:
             logger.info(f"Emotional Themes | User {user_id} | Themes: {themes} | Tone: {emotional_tone.lower()}")
             
             # ========== 性格分析与跟踪 ==========
-            personality_data = None
-            pocket_assessment_mode = False
+            # 加载现有性格档案
+            personality_data = PERSONALITY_STORAGE.load(user_id)
             
-            # 检查是否是Pocket评估模式
-            if chat_request.assessment_mode == "pocket_themes":
-                pocket_assessment_mode = True
-                # 在Pocket评估模式下，不进行常规性格分析
-                personality_data = PERSONALITY_STORAGE.load(user_id)
-                # 如果用户没有性格数据，创建一个默认的
-                if not personality_data:
-                    from personality.models import PersonalityData
-                    personality_data = PersonalityData(user_id=user_id)
-            else:
-                # 常规模式：不再进行按轮数触发的性格分析与日志打印
-                personality_data = PERSONALITY_STORAGE.load(user_id)
+            # 创建临时LLM客户端用于性格分析
+            analysis_llm = LlmFactory.create("openai", config=model_configs[chat_request.model])
+            personality_tracker = PersonalityTracker(analysis_llm)
+            
+            # 跟踪和评估（如果需要）
+            updated_personality = personality_tracker.track_and_assess(
+                user_id=user_id,
+                chat_history=chat_history,
+                existing_personality=personality_data
+            )
+            
+            # 如果更新了，生成完整档案并保存
+            if updated_personality:
+                personality_data = PersonalityProfile.generate_from_big5(updated_personality)
+                PERSONALITY_STORAGE.save(personality_data)
                 
-                # 如果用户没有性格数据，创建一个默认的
-                if not personality_data:
-                    from personality.models import PersonalityData
-                    personality_data = PersonalityData(user_id=user_id)
+                # 打印性格评估结果到终端和日志
+                print("\n" + "="*60)
+                print(f"[PERSONALITY ASSESSMENT] User: {user_id}")
+                print(f"Total Exchanges: {personality_data.total_exchanges}")
+                print(f"Big Five Scores:")
+                big5 = personality_data.big5_assessment
+                print(f"  Openness: {big5.openness.score}% (confidence: {big5.openness.confidence}%)")
+                print(f"  Conscientiousness: {big5.conscientiousness.score}% (confidence: {big5.conscientiousness.confidence}%)")
+                print(f"  Extraversion: {big5.extraversion.score}% (confidence: {big5.extraversion.confidence}%)")
+                print(f"  Agreeableness: {big5.agreeableness.score}% (confidence: {big5.agreeableness.confidence}%)")
+                print(f"  Neuroticism: {big5.neuroticism.score}% (confidence: {big5.neuroticism.confidence}%)")
+                print(f"Primary Traits: {', '.join(personality_data.primary_traits[:3])}")
+                print(f"Assessment Complete: {personality_data.big5_assessment.is_complete(min_confidence=60)}")
+                print("="*60 + "\n")
+                
+                logger.info(f"Personality Assessment | User {user_id} | "
+                           f"Exchanges: {personality_data.total_exchanges} | "
+                           f"Traits: {', '.join(personality_data.primary_traits[:3])}")
             
             # 构建基础系统提示
             base_system_prompt = "You are a role-playing expert. Based on the provided memory information, you will now assume the following role to chat with the user.\n" \
                 + NOVA_PROMPT + "\n" + memories_str
             
-            # ========== 场景化提示增强（英文注释/提示词） ==========
-            scene_section = ""
-            if chat_request.scene and chat_request.scene != "default":
-                try:
-                    from scenes import ScenePromptAdjuster
-                    scene_section = ScenePromptAdjuster.build_scene_section(chat_request.scene)
-                except Exception as _:
-                    # If scene module is unavailable, silently skip to avoid breaking chat
-                    pass
-            
-            # 添加场景提示词
-            system_prompt = base_system_prompt + scene_section
-            
             # 添加情感主题指令
             emotional_prompt = build_emotional_prompt(themes, emotional_tone)
-            system_prompt = system_prompt + emotional_prompt
+            system_prompt = base_system_prompt + emotional_prompt
             
             # 根据性格档案调整系统提示
             if personality_data and personality_data.big5_assessment.is_complete(min_confidence=40):
@@ -377,38 +276,24 @@ def create_app() -> FastAPI:
                 adaptation_summary = PersonalityPromptAdjuster.get_adaptation_summary(personality_data)
                 logger.info(f"Personality Adaptation | User {user_id} | {adaptation_summary}")
             
-            # 在Pocket评估模式下，不进行常规聊天
-            if pocket_assessment_mode:
-                # 返回Pocket评估模式的特殊响应
-                response = "Pocket assessment mode is active. Please use the assessment interface to continue."
-                
-                # 添加助手回复到聊天历史
-                assistant_message_obj = {
-                    "role": "assistant",
-                    "content": response,
-                    "time": timestamp
-                }
-                chat_history.append(assistant_message_obj)
-            else:
-                # 常规聊天模式
-                # 准备发送给LLM的消息（只取最近5条消息，减少处理时间）
-                messages_for_llm = [{"role": "system", "content": system_prompt}] + chat_history[-10:]
-                
-                # 创建LLM实例并获取响应
-                llm = LlmFactory.create("openai", config=MODEL_CONFIGS[chat_request.model])
-                response = llm.generate_response(messages=messages_for_llm, response_format=None)
-                
-                # 处理响应格式
-                if "：" in response[:5]:
-                    response = response.split("：")[1]
-                
-                # 添加助手回复到聊天历史
-                assistant_message_obj = {
-                    "role": "assistant",
-                    "content": response,
-                    "time": timestamp
-                }
-                chat_history.append(assistant_message_obj)
+            # 准备发送给LLM的消息（只取最近10条消息）
+            messages_for_llm = [{"role": "system", "content": system_prompt}] + chat_history[-20:]
+            
+            # 创建LLM实例并获取响应
+            llm = LlmFactory.create("openai", config=model_configs[chat_request.model])
+            response = llm.generate_response(messages=messages_for_llm, response_format=None)
+            
+            # 处理响应格式
+            if "：" in response[:5]:
+                response = response.split("：")[1]
+            
+            # 添加助手回复到聊天历史
+            assistant_message_obj = {
+                "role": "assistant",
+                "content": response,
+                "time": timestamp
+            }
+            chat_history.append(assistant_message_obj)
             
             # 记录响应日志
             logger.info(f"Assistant response to user {user_id}: {response}")
@@ -436,26 +321,16 @@ def create_app() -> FastAPI:
                     "assessment_complete": personality_data.big5_assessment.is_complete(min_confidence=60)
                 }
             
-            # 根据频率提取记忆（异步执行，不阻塞响应）
+            # 根据频率提取记忆
             if len(chat_history) // 2 % chat_request.frequency == 0:
                 memory_msg = chat_history[-chat_request.frequency * 2:]
                 if len(chat_history) > chat_request.frequency * 2 + 1:
                     memory_msg = memory_msg + [{"role": "history", "content": chat_history[-(chat_request.frequency+1) * 2: -chat_request.frequency * 2 - 1]}]
                 
-                # 异步执行记忆存储，不阻塞响应
-                def store_memory_async():
-                    try:
-                        new_memory = MEMORY_INSTANCE.add(memory_msg, user_id=user_id)
-                        logger.info(f"New memory added for user {user_id}: {json.dumps(new_memory, ensure_ascii=False)}")
-                    except Exception as e:
-                        logger.error(f"Error storing memory for user {user_id}: {e}")
-                
-                # 在后台线程中执行
-                import threading
-                threading.Thread(target=store_memory_async, daemon=True).start()
-                
-                results['new_memory'] = []  # 立即返回空结果
-                results["graph_memory"] = {}
+                new_memory = MEMORY_INSTANCE.add(memory_msg, user_id=user_id)
+                results['new_memory'] = new_memory.get('results', [])
+                results["graph_memory"] = new_memory.get("relations", {})
+                logger.info(f"New memory added for user {user_id}: {json.dumps(new_memory, ensure_ascii=False)}")
             
             # 根据频率生成总结
             if len(chat_history) // 2 % chat_request.summary_frequency == 0:

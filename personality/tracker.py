@@ -1,6 +1,8 @@
 """
 Personality Tracker
 追踪用户对话，评估Big Five人格特质
+
+参考: pocket-souls-agents/pocket_souls_god/tools/personality.py
 """
 
 import json
