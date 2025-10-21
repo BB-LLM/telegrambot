@@ -24,6 +24,8 @@ from mem.memory.base import MemoryBase
 from mem.memory.utils import (
     get_fact_retrieval_messages,
     get_profile_retrieval_messages,
+    get_style_retrieval_messages,
+    get_commitments_retrieval_messages,
     parse_messages,
     parse_vision_messages,
     remove_code_blocks,
@@ -304,11 +306,15 @@ class Memory(MemoryBase):
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 future1 = executor.submit(self._add_to_vector_store, messages, processed_metadata, effective_filters, infer, "profile", sid)
                 future2 = executor.submit(self._add_to_vector_store, messages, processed_metadata, effective_filters, infer, "facts", sid)
+                future3 = executor.submit(self._add_to_vector_store, messages, processed_metadata, effective_filters, infer, "style", sid)
+                future4 = executor.submit(self._add_to_vector_store, messages, processed_metadata, effective_filters, infer, "commitments", sid)
 
-                concurrent.futures.wait([future1, future2])
+                concurrent.futures.wait([future1, future2, future3, future4])
                 profile_result = future1.result()
                 facts_result = future2.result()
-            results = profile_result + facts_result
+                style_result = future3.result()
+                commitments_result = future4.result()
+            results = profile_result + facts_result + style_result + commitments_result
             return {"results": results}
 
         if memory_type == MemoryType.GRAPH.value:
@@ -391,6 +397,12 @@ class Memory(MemoryBase):
             user_prompt = f"Input:\n{parsed_messages}"
         elif mtype == 'facts':
             system_prompt, user_prompt = get_fact_retrieval_messages(parsed_messages)
+        elif mtype == 'profile':
+            system_prompt, user_prompt = get_profile_retrieval_messages(parsed_messages)
+        elif mtype == 'style':
+            system_prompt, user_prompt = get_style_retrieval_messages(parsed_messages)
+        elif mtype == 'commitments':
+            system_prompt, user_prompt = get_commitments_retrieval_messages(parsed_messages)
         else:
             system_prompt, user_prompt = get_profile_retrieval_messages(parsed_messages)
 

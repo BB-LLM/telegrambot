@@ -56,7 +56,7 @@ config = {
         "config": {
             "model": "doubao-embedding-text-240715",
             "api_key": "8b2dce0f-ed36-4d2b-898a-14845cc496c1",
-            "openai_base_url": "ark",
+            "openai_base_url": "https://ark.cn-beijing.volces.com/api/v3",
             "embedding_dims": 2560
         }
     },
@@ -324,7 +324,9 @@ def get_memories(chat_request: ChatRequest):
 def chat(chat_request: ChatRequest):
     """complete chatbot pipeline"""
     try:
+        logger.info(f"{chat_request.sid} | Chat request received | user_id: {chat_request.user_id}, model: {chat_request.model}")
         raw_messages = chat_request.messages
+        logger.info(f"{chat_request.sid} | Messages count: {len(raw_messages)}")
         messages = raw_messages[-10:]
         # current_input = messages[-1]['content']
         memories = get_memories(chat_request)
@@ -353,12 +355,14 @@ def chat(chat_request: ChatRequest):
             "openai_base_url": "https://ark.cn-beijing.volces.com/api/v3"
             }
         }
+        logger.info(f"{chat_request.sid} | Creating LLM instance for model: {chat_request.model}")
         llm = LlmFactory.create("openai", config=config[chat_request.model])
-        print('MEMORY_INSTANCE', MEMORY_INSTANCE)
-        print('llm', llm)
+        logger.info(f"{chat_request.sid} | LLM instance created successfully")
+        logger.info(f"{chat_request.sid} | Calling LLM with {len(messages)} messages")
         # MEMORY_INSTANCE.llm = llm
         # MEMORY_INSTANCE.graph.llm = llm
         response = llm.generate_response(messages=messages, response_format=None)
+        logger.info(f"{chat_request.sid} | LLM response received: {response[:100]}...")
         if "：" in response[:5]:
             response = response.split("：")[1]
 
@@ -381,7 +385,8 @@ def chat(chat_request: ChatRequest):
         return results
 
     except Exception as e:
-        print(e)
+        logger.exception(f"{chat_request.sid} | Error in chat endpoint:")
+        print(f"Chat error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
