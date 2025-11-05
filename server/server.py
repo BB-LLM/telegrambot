@@ -41,11 +41,11 @@ config = {
     "llm": {
         "provider": "openai",
         "config": {
-            "api_key": "8b2dce0f-ed36-4d2b-898a-14845cc496c1",
+            "api_key": "sk-f6658ad4ead547b48eb88b93995541e0",
             #"model": "doubao-1-5-pro-32k-character-250715",
             #"model": "doubao-1-5-pro-32k-250115",
-            "model": "deepseek-v3-1-250821",
-            "openai_base_url": "https://ark.cn-beijing.volces.com/api/v3",
+            "model": "deepseek-chat",
+            "openai_base_url": "https://api.deepseek.com/v1",
             "temperature": 0.5,
             "max_tokens": 1024,
             "top_p": 0.5,
@@ -349,10 +349,10 @@ def chat(chat_request: ChatRequest):
             "model": "doubao-1-5-pro-32k-character-250715",
             "openai_base_url": "https://ark.cn-beijing.volces.com/api/v3"
             },
-            "deepseek-v3.1": {
-            "api_key": "8b2dce0f-ed36-4d2b-898a-14845cc496c1",
-            "model": "deepseek-v3-1-250821",
-            "openai_base_url": "https://ark.cn-beijing.volces.com/api/v3"
+            "deepseek-chat": {
+            "api_key": "sk-f6658ad4ead547b48eb88b93995541e0",
+            "model": "deepseek-chat",
+            "openai_base_url": "https://api.deepseek.com/v1"
             }
         }
         logger.info(f"{chat_request.sid} | Creating LLM instance for model: {chat_request.model}")

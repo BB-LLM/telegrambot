@@ -12,3 +12,9 @@ logs/
 # Mem-minus specific ignores
 log*
 conversation_history_*.json
+
+*.sqlite
+*.db
+wks/qdrant/collection/**/storage.sqlite
+evaluation/results/
+results/

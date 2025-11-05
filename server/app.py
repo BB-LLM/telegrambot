@@ -116,6 +116,12 @@ mem_changed = False
 if 'user_input' not in st.session_state:
     st.session_state.user_input = user_id  # 初始默认值
 
+# 初始化每个用户的欢迎语显示标志
+if 'user_welcome_shown' not in st.session_state:
+    st.session_state.user_welcome_shown = {}  # {user_id: True/False}
+
+# 欢迎语
+WELCOME_MESSAGE = "I'm Nova—your pocket guardian. Want to pick a tiny scene to start?"
 
 # 显示侧边栏的输入选项
 with st.sidebar:
@@ -126,11 +132,33 @@ with st.sidebar:
     if user_input:
         user_id = user_input
         st.session_state.user_input = user_input
+        
+        # 检查是否是新用户（首次输入user_id且messages为空）
+        # 或者切换了user_id（需要清空消息并显示欢迎语）
+        if user_id != st.session_state.get('last_user_id', None):
+            # 切换了user_id，清空消息列表
+            st.session_state.messages = []
+            st.session_state.last_user_id = user_id
+        
+        # 如果是新用户且未显示过欢迎语，显示欢迎语
+        if len(st.session_state.messages) == 0 and not st.session_state.user_welcome_shown.get(user_id, False):
+            # 添加欢迎语到消息列表
+            st.session_state.messages.append({
+                "role": "assistant",
+                "content": WELCOME_MESSAGE,
+                "time": datetime.now().strftime("%Y-%m-%d")
+            })
+            st.session_state.user_welcome_shown[user_id] = True
+    
     st.session_state["memories"], st.session_state["relations"] = get_memories(user_id)
     print(f"memories: {st.session_state['memories']}")
     
     # 评估模式选择
     st.write("**Assessment Mode**")
+    
+    # 记录之前的模式，用于检测模式切换
+    previous_mode = st.session_state.assessment_mode
+    
     assessment_mode = st.radio(
         "Choose mode:",
         ["Normal Chat", "Pocket Themes Assessment"],
@@ -139,12 +167,31 @@ with st.sidebar:
     )
     
     if assessment_mode == "Normal Chat":
-        st.session_state.assessment_mode = "normal"
+        new_mode = "normal"
     else:
-        st.session_state.assessment_mode = "pocket_themes"
+        new_mode = "pocket_themes"
+    
+    # 检测模式是否切换
+    if new_mode != previous_mode:
+        # 模式切换了，清空聊天历史
+        st.session_state.messages = []
+        st.session_state.assessment_mode = new_mode
+        
+        # 如果切换到 Normal Chat，显示欢迎语
+        if new_mode == "normal" and user_input:
+            st.session_state.messages.append({
+                "role": "assistant",
+                "content": WELCOME_MESSAGE,
+                "time": datetime.now().strftime("%Y-%m-%d")
+            })
+            # 重置该用户的欢迎语显示标志，确保切换回来时能显示欢迎语
+            if user_input in st.session_state.user_welcome_shown:
+                del st.session_state.user_welcome_shown[user_input]
+    else:
+        st.session_state.assessment_mode = new_mode
     
     # 模型选择（默认使用免费的 ChatGLM glm-4-flash）
-    model = st.selectbox("models", ["glm-4-flash", "doubao-character", "deepseek-v3.1"])
+    model = st.selectbox("models", ["glm-4-flash", "doubao-character", "deepseek-chat"])
 
     # Scene selection with smart recommendation
     st.write("**Scene Selection**")
@@ -282,8 +329,22 @@ if st.session_state.assessment_mode == "pocket_themes":
                 
                 # 返回正常聊天按钮
                 if st.button("💬 Return to Normal Chat"):
+                    # 切换回 Normal Chat 模式，清空聊天历史
+                    st.session_state.messages = []
                     st.session_state.assessment_mode = "normal"
                     st.session_state.pocket_assessment_status = None
+                    
+                    # 显示欢迎语
+                    if user_id:
+                        st.session_state.messages.append({
+                            "role": "assistant",
+                            "content": WELCOME_MESSAGE,
+                            "time": datetime.now().strftime("%Y-%m-%d")
+                        })
+                        # 重置该用户的欢迎语显示标志
+                        if user_id in st.session_state.user_welcome_shown:
+                            del st.session_state.user_welcome_shown[user_id]
+                    
                     st.rerun()
             else:
                 # 显示当前问题

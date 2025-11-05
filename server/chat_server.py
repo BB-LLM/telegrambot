@@ -1,6 +1,7 @@
 import json
 import time
 import uuid
+import concurrent.futures
 from typing import Dict, List, Optional, Union
 from datetime import datetime
 
@@ -16,8 +17,8 @@ from mem.memory.memory import Memory
 from mem.com.factory import LlmFactory
 from mem.vector_stores.prompts import NOVA_PROMPT
 
-# 导入情感主题检测模块
-from emotional.detector import detect_themes_and_tone, build_emotional_prompt
+# 导入情感主题检测模块（已禁用以提升性能）
+# from emotional.detector import detect_themes_and_tone, build_emotional_prompt
 
 # 导入性格分析模块
 from personality.tracker import PersonalityTracker
@@ -41,10 +42,10 @@ MODEL_CONFIGS = {
         "model": "doubao-1-5-pro-32k-character-250715",
         "openai_base_url": "https://ark.cn-beijing.volces.com/api/v3"
     },
-    "deepseek-v3.1": {
-        "api_key": "8b2dce0f-ed36-4d2b-898a-14845cc496c1",
-        "model": "deepseek-v3-1-250821",
-        "openai_base_url": "https://ark.cn-beijing.volces.com/api/v3"
+    "deepseek-chat": {
+        "api_key": "sk-f6658ad4ead547b48eb88b93995541e0",
+        "model": "deepseek-chat",
+        "openai_base_url": "https://api.deepseek.com/v1"
     }
 }
 
@@ -65,6 +66,40 @@ def create_app() -> FastAPI:
     # 聊天历史存储 - 使用字典存储每个用户的聊天历史
     chat_histories: Dict[str, List[Dict]] = {}
     
+    # 内存缓存：记忆和性格数据
+    memory_cache: Dict[str, Dict] = {}  # {user_id: {"data": {...}, "timestamp": time.time()}}
+    personality_cache: Dict[str, Dict] = {}  # {user_id: {"data": {...}, "timestamp": time.time()}}
+    
+    # 缓存配置
+    CACHE_TTL = 300  # 缓存过期时间（秒），5分钟
+    
+    # 复用 ThreadPoolExecutor（全局共享，避免重复创建）
+    _executor = concurrent.futures.ThreadPoolExecutor(max_workers=10)
+    
+    # 调试模式（控制日志输出）
+    DEBUG_MODE = False  # 设置为 True 启用详细日志
+    
+    # 缓存管理函数
+    def clear_memory_cache(user_id: str):
+        """清除用户的记忆缓存"""
+        if user_id in memory_cache:
+            del memory_cache[user_id]
+            if DEBUG_MODE:
+                logger.info(f"Memory cache cleared for user {user_id}")
+    
+    def clear_personality_cache(user_id: str):
+        """清除用户的性格数据缓存"""
+        if user_id in personality_cache:
+            del personality_cache[user_id]
+            if DEBUG_MODE:
+                logger.info(f"Personality cache cleared for user {user_id}")
+    
+    def is_cache_valid(cache_entry: Dict, ttl: int = CACHE_TTL) -> bool:
+        """检查缓存是否有效（未过期）"""
+        if not cache_entry:
+            return False
+        return time.time() - cache_entry.get('timestamp', 0) < ttl
+    
     # 记忆实例
     config = {
         "vector_store": {
@@ -82,9 +117,9 @@ def create_app() -> FastAPI:
         "llm": {
             "provider": "openai",
             "config": {
-                "api_key": "8b2dce0f-ed36-4d2b-898a-14845cc496c1",
-                "model": "deepseek-v3-1-250821",
-                "openai_base_url": "https://ark.cn-beijing.volces.com/api/v3",
+                "api_key": "sk-f6658ad4ead547b48eb88b93995541e0",
+                "model": "deepseek-chat",
+                "openai_base_url": "https://api.deepseek.com/v1",
                 "temperature": 0.5,
                 "max_tokens": 1024,
                 "top_p": 0.5,
@@ -134,41 +169,146 @@ def create_app() -> FastAPI:
         return chat_histories[user_id]
     
     def get_memories(chat_request: ChatRequest):
-        """获取用户记忆"""
-        params = {
-            "user_id": chat_request.user_id,
-        }
+        """获取用户记忆（带缓存机制 + 异步加载）"""
+        user_id = chat_request.user_id
         
-        # 简化记忆检索，减少并发查询
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            # 只获取最重要的facts记忆
-            params.update({"filters": {"type": 'facts'}, "limit": 2})
-            future_memories = executor.submit(MEMORY_INSTANCE.search, chat_request.message, **params)
+        # 1. 检查Profile/Style/Commitments缓存
+        cached_data = None
+        if user_id in memory_cache:
+            cache_entry = memory_cache[user_id]
+            if is_cache_valid(cache_entry):
+                # 缓存有效，使用缓存
+                cached_data = cache_entry['data']
+                if DEBUG_MODE:
+                    logger.info(f"Memory cache hit for user {user_id} (profile/style/commitments)")
+        
+        # 2. Facts记忆：必须实时查询（需要用户消息进行向量搜索）
+        # 无论缓存是否命中，Facts都需要实时查询，并且应该异步执行
+        facts_params = {"user_id": user_id}
+        facts_params.update({"filters": {"type": 'facts'}, "limit": 2})
+        
+        # 3. 如果缓存有效，只查询Facts（异步），使用缓存的Profile/Style/Commitments
+        if cached_data:
+            # Facts查询也异步执行（不阻塞）
+            future_facts = _executor.submit(MEMORY_INSTANCE.search, chat_request.message, **facts_params)
             
-            # 其他记忆类型减少查询量
-            params.update({"filters": {"type": 'profile'}, "limit": 5})
-            future_profile = executor.submit(MEMORY_INSTANCE.get_all, **params)
+            # 等待Facts查询完成
+            facts_memories = future_facts.result()
+            memories_facts = "\n".join(f"- {entry['memory']}" for entry in facts_memories.get("results", []))
             
-            params.update({"filters": {"type": 'style'}, "limit": 5})
-            future_style = executor.submit(MEMORY_INSTANCE.get_all, **params)
+            result = {
+                "facts": memories_facts,  # 实时查询的facts（异步执行）
+                "profile": cached_data.get("profile", ""),
+                "style": cached_data.get("style", ""),
+                "commitments": cached_data.get("commitments", "")
+            }
             
-            params.update({"filters": {"type": 'commitments'}, "limit": 5})
-            future_commitments = executor.submit(MEMORY_INSTANCE.get_all, **params)
+            # 后台异步刷新缓存（不阻塞，延迟执行，减少开销）
+            def refresh_cache_async():
+                try:
+                    time.sleep(0.1)  # 延迟100ms，避免立即刷新
+                    refresh_params = {"user_id": user_id}
+                    # 使用全局共享的 executor
+                    refresh_params.update({"filters": {"type": 'profile'}, "limit": 5})
+                    future_profile = _executor.submit(MEMORY_INSTANCE.get_all, **refresh_params)
+                    
+                    refresh_params.update({"filters": {"type": 'style'}, "limit": 5})
+                    future_style = _executor.submit(MEMORY_INSTANCE.get_all, **refresh_params)
+                    
+                    refresh_params.update({"filters": {"type": 'commitments'}, "limit": 5})
+                    future_commitments = _executor.submit(MEMORY_INSTANCE.get_all, **refresh_params)
+                    
+                    concurrent.futures.wait([future_profile, future_style, future_commitments])
+                    
+                    profile_memories = future_profile.result()
+                    style_memories = future_style.result()
+                    commitments_memories = future_commitments.result()
+                    
+                    # 格式化并更新缓存
+                    memories_profile = "\n".join(f"- {entry['memory']}" for entry in profile_memories.get("results", []))
+                    memories_style = "\n".join(f"- {entry['memory']}" for entry in style_memories.get("results", []))
+                    memories_commitments = "\n".join(f"- {entry['memory']}" for entry in commitments_memories.get("results", []))
+                    
+                    memory_cache[user_id] = {
+                        "data": {
+                            "facts": "",  # facts不缓存
+                            "profile": memories_profile,
+                            "style": memories_style,
+                            "commitments": memories_commitments
+                        },
+                        "timestamp": time.time()
+                    }
+                    if DEBUG_MODE:
+                        logger.info(f"Memory cache refreshed asynchronously for user {user_id}")
+                except Exception as e:
+                    logger.error(f"Error refreshing memory cache for user {user_id}: {e}")
             
-            concurrent.futures.wait([future_memories, future_profile, future_style, future_commitments])
+            # 异步刷新缓存（只在缓存命中时刷新，减少频率）
+            import threading
+            threading.Thread(target=refresh_cache_async, daemon=True).start()
             
-            original_memories = future_memories.result()
-            profile_memories = future_profile.result()
-            style_memories = future_style.result()
-            commitments_memories = future_commitments.result()
+            return result
+        
+        # 4. 缓存不存在或过期，并发查询Facts + Profile/Style/Commitments
+        if DEBUG_MODE:
+            logger.info(f"Memory cache miss for user {user_id}, loading from database")
+        
+        # 使用全局共享的 executor
+        executor = _executor
+        
+        # Facts查询（需要用户消息）
+        future_facts = executor.submit(MEMORY_INSTANCE.search, chat_request.message, **facts_params)
+        
+        # Profile查询
+        profile_params = {"user_id": user_id}
+        profile_params.update({"filters": {"type": 'profile'}, "limit": 5})
+        future_profile = executor.submit(MEMORY_INSTANCE.get_all, **profile_params)
+        
+        # Style查询
+        style_params = {"user_id": user_id}
+        style_params.update({"filters": {"type": 'style'}, "limit": 5})
+        future_style = executor.submit(MEMORY_INSTANCE.get_all, **style_params)
+        
+        # Commitments查询
+        commitments_params = {"user_id": user_id}
+        commitments_params.update({"filters": {"type": 'commitments'}, "limit": 5})
+        future_commitments = executor.submit(MEMORY_INSTANCE.get_all, **commitments_params)
+        
+        # 等待所有查询完成
+        concurrent.futures.wait([future_facts, future_profile, future_style, future_commitments])
+        
+        # 获取结果
+        facts_memories = future_facts.result()
+        profile_memories = future_profile.result()
+        style_memories = future_style.result()
+        commitments_memories = future_commitments.result()
         
         # 格式化记忆
-        memories_facts = "\n".join(f"- {entry['memory']}" for entry in original_memories.get("results", []))
+        memories_facts = "\n".join(f"- {entry['memory']}" for entry in facts_memories.get("results", []))
         memories_profile = "\n".join(f"- {entry['memory']}" for entry in profile_memories.get("results", []))
         memories_style = "\n".join(f"- {entry['memory']}" for entry in style_memories.get("results", []))
         memories_commitments = "\n".join(f"- {entry['memory']}" for entry in commitments_memories.get("results", []))
         
-        result = {"facts": memories_facts, "profile": memories_profile, "style": memories_style, "commitments": memories_commitments}
+        result = {
+            "facts": memories_facts,
+            "profile": memories_profile,
+            "style": memories_style,
+            "commitments": memories_commitments
+        }
+        
+        # 5. 存入缓存（只缓存profile/style/commitments）
+        memory_cache[user_id] = {
+            "data": {
+                "facts": "",  # facts不缓存
+                "profile": memories_profile,
+                "style": memories_style,
+                "commitments": memories_commitments
+            },
+            "timestamp": time.time()
+        }
+        if DEBUG_MODE:
+            logger.info(f"Memory cache updated for user {user_id}")
+        
         return result
     
     # API 端点
@@ -212,6 +352,9 @@ def create_app() -> FastAPI:
                     # 生成完整档案
                     complete_profile = PersonalityProfile.generate_from_big5(personality_data)
                     PERSONALITY_STORAGE.save(complete_profile)
+                    
+                    # 清除性格数据缓存，强制下次重新加载
+                    clear_personality_cache(user_id)
                     
                     # 添加到结果中
                     result["personality_profile"] = {
@@ -302,50 +445,58 @@ def create_app() -> FastAPI:
             
             logger.info(f"Scene Selection | User {user_id} | Selected Scene: {scene_label}")
             
-            # ========== 情感主题检测 ==========
-            # 简化情感检测，只在消息较长时进行
-            if len(user_message) > 20:  # 只对较长的消息进行情感检测
-                emotional_result = detect_themes_and_tone(
-                    memory_text="",  # 不传入历史记忆
-                    current_message=user_message
-                )
-                themes = emotional_result["themes"]
-                emotional_tone = emotional_result["emotional_tone"]
-            else:
-                themes = []
-                emotional_tone = "neutral"
+            # ========== 情感主题检测（已禁用）==========
+            # 情感检测已禁用以提升性能
+            themes = []
+            emotional_tone = "neutral"
             
-            # 打印情感检测结果到终端和日志
-            print("\n" + "="*60)
-            print(f"[EMOTIONAL DETECTION] User: {user_id}")
-            print(f"Message: {user_message[:100]}..." if len(user_message) > 100 else f"Message: {user_message}")
-            print(f"Detected Themes: {', '.join(themes)}")
-            print(f"Emotional Tone: {emotional_tone.lower()}")
-            print("="*60 + "\n")
-            
-            logger.info(f"Emotional Themes | User {user_id} | Themes: {themes} | Tone: {emotional_tone.lower()}")
-            
-            # ========== 性格分析与跟踪 ==========
+            # ========== 性格分析与跟踪（带缓存机制 + 异步加载）==========
             personality_data = None
             pocket_assessment_mode = False
             
-            # 检查是否是Pocket评估模式
-            if chat_request.assessment_mode == "pocket_themes":
-                pocket_assessment_mode = True
-                # 在Pocket评估模式下，不进行常规性格分析
-                personality_data = PERSONALITY_STORAGE.load(user_id)
-                # 如果用户没有性格数据，创建一个默认的
-                if not personality_data:
-                    from personality.models import PersonalityData
-                    personality_data = PersonalityData(user_id=user_id)
-            else:
-                # 常规模式：不再进行按轮数触发的性格分析与日志打印
-                personality_data = PERSONALITY_STORAGE.load(user_id)
+            # 检查缓存
+            if user_id in personality_cache:
+                cache_entry = personality_cache[user_id]
+                if is_cache_valid(cache_entry):
+                    # 缓存有效，直接使用
+                    personality_data = cache_entry['data']
+                    if DEBUG_MODE:
+                        logger.info(f"Personality cache hit for user {user_id}")
+                else:
+                    # 缓存过期，清除
+                    if DEBUG_MODE:
+                        logger.info(f"Personality cache expired for user {user_id}")
+                    del personality_cache[user_id]
+            
+            # 如果缓存中没有，使用默认值并异步加载
+            if personality_data is None:
+                # 先使用默认值，不阻塞响应
+                from personality.models import PersonalityData
+                personality_data = PersonalityData(user_id=user_id)
                 
-                # 如果用户没有性格数据，创建一个默认的
-                if not personality_data:
-                    from personality.models import PersonalityData
-                    personality_data = PersonalityData(user_id=user_id)
+                # 后台异步加载完整性格数据
+                def load_personality_async():
+                    try:
+                        loaded_personality = PERSONALITY_STORAGE.load(user_id)
+                        
+                        # 如果加载到数据，更新缓存
+                        if loaded_personality:
+                            personality_cache[user_id] = {
+                                "data": loaded_personality,
+                                "timestamp": time.time()
+                            }
+                            if DEBUG_MODE:
+                                logger.info(f"Personality loaded asynchronously and cached for user {user_id}")
+                    except Exception as e:
+                        logger.error(f"Error loading personality asynchronously for user {user_id}: {e}")
+                
+                # 异步加载
+                import threading
+                threading.Thread(target=load_personality_async, daemon=True).start()
+                
+                # 检查是否是Pocket评估模式
+                if chat_request.assessment_mode == "pocket_themes":
+                    pocket_assessment_mode = True
             
             # 构建基础系统提示
             base_system_prompt = "You are a role-playing expert. Based on the provided memory information, you will now assume the following role to chat with the user.\n" \
@@ -364,9 +515,7 @@ def create_app() -> FastAPI:
             # 添加场景提示词
             system_prompt = base_system_prompt + scene_section
             
-            # 添加情感主题指令
-            emotional_prompt = build_emotional_prompt(themes, emotional_tone)
-            system_prompt = system_prompt + emotional_prompt
+            # 情感主题指令已禁用（情感检测已关闭）
             
             # 根据性格档案调整系统提示
             if personality_data and personality_data.big5_assessment.is_complete(min_confidence=40):
@@ -417,14 +566,10 @@ def create_app() -> FastAPI:
             response_preview = response[:200] + "..." if len(response) > 200 else response
             print(f"[AI RESPONSE] {response_preview}\n")
             
-            # 准备结果（包含情感主题和性格状态信息）
+            # 准备结果（包含性格状态信息）
             results = {
                 'response': response, 
-                "used_memory": memories_str,
-                "emotional_themes": {
-                    "themes": themes,
-                    "tone": emotional_tone
-                }
+                "used_memory": memories_str
             }
             
             # 添加性格状态信息
@@ -447,6 +592,9 @@ def create_app() -> FastAPI:
                     try:
                         new_memory = MEMORY_INSTANCE.add(memory_msg, user_id=user_id)
                         logger.info(f"New memory added for user {user_id}: {json.dumps(new_memory, ensure_ascii=False)}")
+                        
+                        # 清除记忆缓存，强制下次重新加载
+                        clear_memory_cache(user_id)
                     except Exception as e:
                         logger.error(f"Error storing memory for user {user_id}: {e}")
                 
