@@ -13,8 +13,31 @@ logs/
 log*
 conversation_history_*.json
 
+# Database files
 *.sqlite
 *.db
 wks/qdrant/collection/**/storage.sqlite
+
+# Evaluation and results
 evaluation/results/
 results/
+
+# Python
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,28 @@
+{
+  "user_id": "tg_123456",
+  "date": "2025-10-30",
+  "timezone": "Asia/Shanghai",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Ran 5km this morning, feeling great",
+      "time": "2025-10-30 08:10:21"
+    },
+    {
+      "role": "user",
+      "content": "Experiment replication passed, recorded key parameters and environment versions",
+      "time": "2025-10-30 14:03:55"
+    },
+    {
+      "role": "assistant",
+      "content": "Great! Suggest focusing on organizing the Related Work section tomorrow",
+      "time": "2025-10-30 19:41:02"
+    },
+    {
+      "role": "user",
+      "content": "Read two related papers in the evening, thoughts are clearer now",
+      "time": "2025-10-30 20:15:33"
+    }
+  ]
+}
+
