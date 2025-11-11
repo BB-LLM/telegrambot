@@ -144,7 +144,7 @@ with st.sidebar:
         st.session_state.assessment_mode = "pocket_themes"
     
     # 模型选择（默认使用免费的 ChatGLM glm-4-flash）
-    model = st.selectbox("models", ["glm-4-flash", "doubao-character", "deepseek-v3.1"])
+    model = st.selectbox("models", ["glm-4-flash", "doubao-character", "deepseek-v3.1", "gemini"])
 
     # Scene selection with smart recommendation
     st.write("**Scene Selection**")

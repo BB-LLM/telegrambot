@@ -2,6 +2,7 @@ import json
 import time
 import uuid
 from typing import Dict, List, Optional, Union
+import os
 from datetime import datetime
 
 from fastapi import FastAPI, HTTPException
@@ -45,7 +46,13 @@ MODEL_CONFIGS = {
         "api_key": "8b2dce0f-ed36-4d2b-898a-14845cc496c1",
         "model": "deepseek-v3-1-250821",
         "openai_base_url": "https://ark.cn-beijing.volces.com/api/v3"
-    }
+	},
+	# 新增：Gemini（通过 OpenAI 兼容接口接入现有 LlmFactory）
+	"gemini": {
+		"api_key": "AIzaSyBY6ZuSeq64JOhMLI1jJxnUMccNhCsHjUU",
+		"model": "gemini-2.5-flash",
+		"openai_base_url": "https://generativelanguage.googleapis.com/openai/"
+	}
 }
 
 # 加载环境变量
