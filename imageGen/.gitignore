@@ -32,7 +32,6 @@ app/model/*.pth
 app/model/*.whl
 
 # 环境变量
-.env
 .env.local
 .env.*.local
 
