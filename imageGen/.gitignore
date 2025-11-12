@@ -20,6 +20,10 @@ generated_images/
 !static/*.jpg
 !static/*.jpeg
 
+generated_videos/
+*.mp4
+*.gif
+
 # 模型文件（太大，不上传）
 app/model/*.safetensors
 app/model/*.ckpt

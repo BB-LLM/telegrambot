@@ -166,3 +166,36 @@ class HealthResponse(BaseModel):
     timestamp: int = Field(..., description="时间戳")
     database: str = Field(..., description="数据库状态")
     storage: str = Field(..., description="存储状态")
+
+
+class WanVideoRequest(BaseModel):
+    """Wan文本到视频请求（自动生成GIF）"""
+    soul_id: str = Field(..., description="Soul ID")
+    cue: str = Field(..., description="提示词")
+    user_id: str = Field(..., description="用户ID")
+
+
+class WanVideoResponse(BaseModel):
+    """Wan文本到视频响应"""
+    mp4_url: str = Field(..., description="MP4访问URL")
+    gif_url: Optional[str] = Field(None, description="GIF访问URL")
+    variant_id: str = Field(..., description="变体ID")
+    pk_id: str = Field(..., description="提示词键ID")
+    cache_hit: bool = Field(..., description="是否命中缓存")
+
+
+class WanSelfieRequest(BaseModel):
+    """Wan自拍视频请求（自动生成GIF）"""
+    soul_id: str = Field(..., description="Soul ID")
+    city_key: str = Field(..., description="城市键")
+    mood: str = Field(..., description="情绪")
+    user_id: str = Field(..., description="用户ID")
+
+
+class WanSelfieResponse(BaseModel):
+    """Wan自拍视频响应"""
+    mp4_url: str = Field(..., description="MP4访问URL")
+    gif_url: Optional[str] = Field(None, description="GIF访问URL")
+    variant_id: str = Field(..., description="变体ID")
+    pk_id: str = Field(..., description="提示词键ID")
+    landmark_key: str = Field(..., description="地标键")

@@ -42,7 +42,7 @@ class Config:
     SDXL_OUTPUT_DIR: str = os.getenv("SDXL_OUTPUT_DIR", "generated_images")
     SDXL_NUM_INFERENCE_STEPS: int = int(os.getenv("SDXL_NUM_INFERENCE_STEPS", "5"))
     SDXL_WIDTH: int = int(os.getenv("SDXL_WIDTH", "1024"))
-    SDXL_HEIGHT: int = int(os.getenv("SDXL_HEIGHT", "1024"))
+    SDXL_HEIGHT: int = int(os.getenv("SDXL_HEIGHT", "576"))
     SDXL_GUIDANCE_SCALE: float = float(os.getenv("SDXL_GUIDANCE_SCALE", "7.5"))
     
     # GIF生成配置
@@ -60,7 +60,16 @@ class Config:
     SVD_IMAGE_WIDTH: int = int(os.getenv("SVD_IMAGE_WIDTH", "1024"))
     SVD_IMAGE_HEIGHT: int = int(os.getenv("SVD_IMAGE_HEIGHT", "576"))
     # 预估生成时间（秒/帧）- 用于计算预估时间
-    SVD_ESTIMATED_SECONDS_PER_FRAME: float = float(os.getenv("SVD_ESTIMATED_SECONDS_PER_FRAME", "2.0"))
+    SVD_ESTIMATED_SECONDS_PER_FRAME: float = float(os.getenv("SVD_ESTIMATED_SECONDS_PER_FRAME", "10.0"))
+    
+    # Wan 文本到视频配置（阿里云 DashScope）
+    WAN_API_BASE_URL: str = os.getenv("WAN_API_BASE_URL", "https://dashscope.aliyuncs.com/api/v1")
+    WAN_OUTPUT_DIR: str = os.getenv("WAN_OUTPUT_DIR", "generated_videos")
+    WAN_MODEL: str = os.getenv("WAN_MODEL", "wan2.5-t2v-preview")
+    WAN_SIZE: str = os.getenv("WAN_SIZE", "832*480")
+    WAN_DURATION: int = int(os.getenv("WAN_DURATION", "5"))
+    WAN_PROMPT_EXTEND: bool = os.getenv("WAN_PROMPT_EXTEND", "True").lower() == "true"
+    WAN_WATERMARK: bool = os.getenv("WAN_WATERMARK", "False").lower() == "true"
     
     # 设备配置
     FORCE_CPU: bool = os.getenv("FORCE_CPU", "False").lower() == "true"

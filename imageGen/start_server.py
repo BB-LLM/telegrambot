@@ -18,6 +18,7 @@ if __name__ == "__main__":
     print(f"项目根目录: {project_root}")
     print(f"API地址: http://{config.API_HOST}:{config.API_PORT}")
     print(f"前端页面: http://localhost:{config.API_PORT}")
+    print(f"Wan视频生成页面: http://localhost:{config.API_PORT}/wan-video")
     print(f"API文档: http://localhost:{config.API_PORT}/docs")
     
     uvicorn.run(

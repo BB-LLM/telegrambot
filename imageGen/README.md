@@ -1,6 +1,15 @@
-# Soul - AI Character Image & GIF Generation System
+# Soul - AI Character Image & Video Generation System
 
-FastAPI-based AI image and video generation system with intelligent deduplication, user-specific variant delivery, and image-to-GIF conversion capabilities.
+FastAPI-based AI image and video generation system with intelligent deduplication, user-specific variant delivery, image-to-GIF conversion, and text-to-video generation capabilities.
+
+## ✨ Features
+
+- **Image Generation**: Generate styled images using Stable Diffusion XL with Soul-specific styles
+- **Text-to-Video**: Direct text-to-video generation using Wan API (阿里云 DashScope)
+- **Image-to-Video**: Convert images to videos using Stable Video Diffusion (SVD)
+- **GIF Conversion**: Automatic MP4 to GIF conversion
+- **Intelligent Caching**: Prompt similarity matching and user-specific variant delivery
+- **Selfie Generation**: Generate location-based selfies with diverse landmarks
 
 ## 📁 Project Structure
 
@@ -9,7 +18,8 @@ soul/
 ├── app/
 │   ├── api/              # API routes
 │   │   ├── routes_image.py      # Image generation endpoints
-│   │   ├── routes_video.py      # Video/GIF generation endpoints
+│   │   ├── routes_video.py      # Image-to-video generation endpoints (SVD)
+│   │   ├── routes_wan_video.py  # Text-to-video generation endpoints (Wan API)
 │   │   ├── routes_tasks.py      # Task management endpoints
 │   │   ├── routes_style.py      # Style-specific endpoints
 │   │   └── routes_static.py     # Static file serving
@@ -24,19 +34,22 @@ soul/
 │   │   └── dal.py               # Data access layer
 │   ├── logic/
 │   │   ├── service_image.py     # Core image service
-│   │   ├── service_video.py     # Video/GIF generation service
+│   │   ├── service_video.py     # Image-to-video generation service (SVD)
+│   │   ├── service_wan_video.py # Text-to-video generation service (Wan API)
 │   │   ├── prompt_cache.py      # Prompt normalization and caching
-│   │   ├── place_chooser.py    # Selfie location selection
-│   │   └── ai_model_service.py # AI model wrapper
+│   │   ├── place_chooser.py     # Selfie location selection
+│   │   └── ai_model_service.py  # AI model wrapper
 │   ├── model/                   # AI models directory
 │   │   ├── sdXL_v10VAEFix.safetensors  # SDXL model
 │   │   └── test_svd.py          # SVD testing script
 │   ├── config.py                # Configuration management
 │   └── test/                    # Test suite
 ├── static/                      # Frontend files
-│   ├── index.html
-│   ├── script.js
-│   └── style.css
+│   ├── index.html              # Image generation interface
+│   ├── wan_video.html          # Wan video generation interface
+│   ├── script.js               # Image generation frontend logic
+│   ├── wan_video.js            # Wan video generation frontend logic
+│   └── style.css               # Shared styles
 ├── generated_images/            # Generated image files
 ├── generated_videos/            # Generated video and GIF files
 ├── main.py                      # FastAPI application entry
@@ -132,6 +145,16 @@ SVD_FPS=7
 SVD_IMAGE_WIDTH=1024
 SVD_IMAGE_HEIGHT=576
 SVD_ESTIMATED_SECONDS_PER_FRAME=2.0
+
+# Wan API (Text-to-Video) Settings (Required for text-to-video)
+DASHSCOPE_API_KEY=your-dashscope-api-key
+WAN_API_BASE_URL=https://dashscope.aliyuncs.com/api/v1
+WAN_OUTPUT_DIR=generated_videos
+WAN_MODEL=wan2.5-t2v-preview
+WAN_SIZE=832*480
+WAN_DURATION=5
+WAN_PROMPT_EXTEND=true
+WAN_WATERMARK=false
 ```
 
 ### 6. Initialize Database
@@ -181,7 +204,8 @@ python start_server.py
 ```
 
 Access the application:
-- **Web Interface**: http://localhost:8000
+- **Image Generation Interface**: http://localhost:8000
+- **Wan Video Generation Interface**: http://localhost:8000/wan-video
 - **API Documentation**: http://localhost:8000/docs
 - **Health Check**: http://localhost:8000/healthz
 - **Readiness Check**: http://localhost:8000/ready
@@ -216,6 +240,13 @@ python -m pytest app/test/ --cov=app
 | `SVD_IMAGE_WIDTH` | `1024` | Input image width |
 | `SVD_IMAGE_HEIGHT` | `576` | Input image height |
 | `SVD_ESTIMATED_SECONDS_PER_FRAME` | `2.0` | Estimated seconds per frame for time estimation |
+| `DASHSCOPE_API_KEY` | - | **Required** for Wan text-to-video. Get from [阿里云百炼](https://help.aliyun.com/zh/model-studio/get-api-key) |
+| `WAN_API_BASE_URL` | `https://dashscope.aliyuncs.com/api/v1` | Wan API base URL (Beijing region) |
+| `WAN_MODEL` | `wan2.5-t2v-preview` | Wan model identifier |
+| `WAN_SIZE` | `832*480` | Video resolution |
+| `WAN_DURATION` | `5` | Video duration in seconds |
+| `WAN_PROMPT_EXTEND` | `true` | Enable prompt extension |
+| `WAN_WATERMARK` | `false` | Enable watermark |
 
 ## 📡 API Endpoints
 
@@ -230,7 +261,7 @@ python -m pytest app/test/ --cov=app
 - `GET /image/variants/{pk_id}` - Get all variants by prompt key
 - `GET /image/user/{user_id}/seen` - Get user's seen variants
 
-### Video/GIF Generation
+### Video/GIF Generation (Image-to-Video, SVD)
 
 - `GET /video/estimate` - Estimate GIF generation time
   - Query params: `num_frames` (optional)
@@ -238,6 +269,17 @@ python -m pytest app/test/ --cov=app
   - Body: `{image_path, num_frames?, generate_gif?}`
 - `POST /video/generate-from-variant` - Generate GIF from variant ID
   - Query params: `variant_id`, `num_frames?`, `generate_gif?`
+
+### Text-to-Video Generation (Wan API)
+
+- `GET /wan-video/` - Generate Soul-style video from text (automatically generates GIF)
+  - Query params: `soul_id`, `cue`, `user_id`
+  - Returns: `{mp4_url, gif_url, variant_id, pk_id, cache_hit}`
+- `POST /wan-video/selfie` - Generate Soul selfie video from text (automatically generates GIF)
+  - Body: `{soul_id, city_key, mood, user_id}`
+  - Returns: `{mp4_url, gif_url, variant_id, pk_id, landmark_key}`
+- `POST /wan-video/generate-direct` - Direct text-to-video generation (for testing)
+  - Body: `{positive_prompt, negative_prompt?, seed?, generate_gif?}`
 
 ### Task Management
 
@@ -313,3 +355,45 @@ Response:
 ```bash
 curl -X POST "http://localhost:8000/video/generate-from-variant?variant_id=01K8XXX&generate_gif=true"
 ```
+
+### Generate Video from Text (Wan API)
+
+**Via Web Interface:**
+1. Navigate to http://localhost:8000/wan-video
+2. Select a Soul character
+3. Enter a text prompt (cue)
+4. Click "Generate Soul Style Video"
+5. The system will automatically generate both MP4 and GIF
+
+**Via API:**
+```bash
+# Generate style video
+curl "http://localhost:8000/wan-video/?soul_id=nova&cue=bird%20flying%20in%20the%20sky&user_id=user123"
+
+# Generate selfie video
+curl -X POST http://localhost:8000/wan-video/selfie \
+  -H "Content-Type: application/json" \
+  -d '{
+    "soul_id": "nova",
+    "city_key": "tokyo",
+    "mood": "happy",
+    "user_id": "user123"
+  }'
+```
+
+Response:
+```json
+{
+  "mp4_url": "/static/videos/wan_01K9XXX.mp4",
+  "gif_url": "/static/videos/wan_01K9XXX.gif",
+  "variant_id": "01K9XXX",
+  "pk_id": "01K8YYY",
+  "cache_hit": false
+}
+```
+
+**Note**: 
+- Wan API requires `DASHSCOPE_API_KEY` environment variable
+- Videos are automatically downloaded and saved to `generated_videos/` directory
+- GIF conversion is automatic (no need to specify)
+- The system supports unique variant delivery (same prompt returns different variants for different users)

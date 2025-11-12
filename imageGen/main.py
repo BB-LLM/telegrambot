@@ -12,6 +12,7 @@ from app.api.routes_image import router as image_router
 from app.api.routes_static import router as static_router, setup_static_files
 from app.api.routes_tasks import router as tasks_router
 from app.api.routes_video import router as video_router
+from app.api.routes_wan_video import router as wan_video_router
 from app.config import config
 from app.data.dal import get_db
 
@@ -72,6 +73,7 @@ app.include_router(image_router)
 app.include_router(static_router)  # 静态文件路由必须在挂载之前注册
 app.include_router(tasks_router)
 app.include_router(video_router)
+app.include_router(wan_video_router)
 
 # 设置静态文件服务（挂载必须在路由之后，避免覆盖路由）
 setup_static_files(app)
@@ -94,6 +96,23 @@ async def root():
             "status": "running",
             "environment": config.ENVIRONMENT,
             "note": "前端页面未找到，请检查static/index.html文件"
+        }
+
+
+@app.get("/wan-video")
+async def wan_video_page():
+    """Wan视频生成页面"""
+    from fastapi.responses import FileResponse
+    import os
+    
+    # 返回Wan视频生成页面
+    frontend_path = os.path.join(os.path.dirname(__file__), "static", "wan_video.html")
+    if os.path.exists(frontend_path):
+        return FileResponse(frontend_path)
+    else:
+        return {
+            "message": "Wan Video Page Not Found",
+            "note": "请检查static/wan_video.html文件"
         }
 
 
