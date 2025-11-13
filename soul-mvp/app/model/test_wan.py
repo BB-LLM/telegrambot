@@ -40,7 +40,7 @@ pipeline.to("cuda")
 # bird, anime style, pastel colors, cute character, elegant colors, animated style
 # """
 
-prompt = "In the image, a gentle, elegant character is taking a selfie in front of the Louvre Museum in Paris. The overall color scheme uses dreamy pastel colors, creating a soft and romantic lighting effect. The Louvre in the background is depicted with delicate brushstrokes, and the golden sunset casts a soft glow on the glass pyramid. The character possesses typical features of Japanese anime—large, bright eyes, flowing hair, and nuanced facial expressions. The camera gently pans to capture the moment the character smiles while holding her phone, a gentle breeze ruffling her hair and clothing. The overall atmosphere is light, elegant, and charming, full of animation and artistic flair, capturing both the romance of Paris and the gentle fantasy of an anime world."
+prompt = "bird flying in the sky"
 
 negative_prompt = """
 blurry, low quality, realistic, photorealistic

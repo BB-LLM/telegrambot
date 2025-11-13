@@ -75,20 +75,18 @@ class TaskManager:
         self.semaphore = asyncio.Semaphore(max_concurrent)
         self._cleanup_task: Optional[asyncio.Task] = None
         self._queue_processor: Optional[asyncio.Task] = None
-        self._loop: Optional[asyncio.AbstractEventLoop] = None
     
     def _ensure_background_tasks(self):
-        """确保后台任务已经在事件循环中运行"""
+        """确保后台任务已在当前事件循环中启动"""
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
-            loop = asyncio.get_event_loop()
-            if not loop.is_running():
-                # 如果事件循环尚未运行，暂时跳过，等待在运行中的上下文再次调用
-                return
-        self._loop = loop
+            # 没有运行中的事件循环，延迟到首次任务启动时
+            return
+        
         if self._cleanup_task is None or self._cleanup_task.done():
             self._cleanup_task = loop.create_task(self._cleanup_old_tasks())
+        
         if self._queue_processor is None or self._queue_processor.done():
             self._queue_processor = loop.create_task(self._queue_processor_loop())
     
@@ -136,7 +134,6 @@ class TaskManager:
     
     def create_task(self, task_type: TaskType, params: Dict[str, Any]) -> str:
         """创建新任务"""
-        self._ensure_background_tasks()
         task_id = str(uuid.uuid4())
         task = BackgroundTask(task_id, task_type, params)
         self.tasks[task_id] = task
@@ -144,9 +141,11 @@ class TaskManager:
     
     async def start_task(self, task_id: str, coro_func, *args, **kwargs):
         """启动任务（加入队列）"""
-        self._ensure_background_tasks()
         if task_id not in self.tasks:
             raise ValueError(f"任务 {task_id} 不存在")
+        
+        # 确保后台处理器运行在当前事件循环中
+        self._ensure_background_tasks()
         
         task = self.tasks[task_id]
         if task.status != TaskStatus.PENDING:

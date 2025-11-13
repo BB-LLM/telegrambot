@@ -186,6 +186,18 @@ body {
     background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
 }
 
+.lizhe-avatar {
+    background: linear-gradient(135deg, #4A4A4A 0%, #000000 100%);
+}
+
+.linna-avatar {
+    background: linear-gradient(135deg, #FFD700 0%, #FF4500 100%);
+}
+
+.wangjing-avatar {
+    background: linear-gradient(135deg, #87CEEB 0%, #E6E6FA 100%);
+}
+
 .soul-card h3 {
     font-size: var(--font-size-xl);
     font-weight: 600;

@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Soul MVP - AI Character Image Generation System</title>
-    <link rel="stylesheet" href="/static/style.css?v=7.0">
+    <title>Soul MVP - Wan 文本到视频生成</title>
+    <link rel="stylesheet" href="/static/style.css?v=8.0">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
 <body>
@@ -12,8 +12,8 @@
         <!-- 头部 -->
         <header class="header">
             <div class="header-content">
-                <h1><i class="fas fa-magic"></i> Soul MVP</h1>
-                <p class="subtitle">AI-Powered Character Image Generation System</p>
+                <h1><i class="fas fa-video"></i> Soul MVP - Wan 视频生成</h1>
+                <p class="subtitle">AI-Powered Text-to-Video Generation System</p>
             </div>
         </header>
 
@@ -22,20 +22,20 @@
             <div class="guide-card">
                 <div class="guide-header">
                     <i class="fas fa-question-circle"></i>
-                    <h3>How to Use</h3>
+                    <h3>使用说明</h3>
                 </div>
                 <div class="guide-steps">
                     <div class="step">
                         <span class="step-number">1</span>
-                        <p>Select a Soul character</p>
+                        <p>选择一个 Soul 角色</p>
                     </div>
                     <div class="step">
                         <span class="step-number">2</span>
-                        <p>Choose function and fill in details</p>
+                        <p>选择功能并填写详情</p>
                     </div>
                     <div class="step">
                         <span class="step-number">3</span>
-                        <p>Wait for AI to generate your image</p>
+                        <p>等待 AI 生成视频</p>
                     </div>
                 </div>
             </div>
@@ -46,7 +46,7 @@
 
             <!-- Soul选择区域 -->
             <section class="soul-selection">
-                <h2><i class="fas fa-user-circle"></i> Select Your Soul</h2>
+                <h2><i class="fas fa-user-circle"></i> 选择您的 Soul</h2>
                 <div class="soul-cards">
                     <div class="soul-card" data-soul="nova">
                         <div class="soul-avatar nova-avatar">
@@ -72,18 +72,54 @@
                             <span class="tag">sophisticated</span>
                         </div>
                     </div>
+                    <div class="soul-card" data-soul="lizhe">
+                        <div class="soul-avatar lizhe-avatar">
+                            <i class="fas fa-briefcase"></i>
+                        </div>
+                        <h3>Li Zhe</h3>
+                        <p>Professional style, minimalist, business elite</p>
+                        <div class="soul-tags">
+                            <span class="tag">professional</span>
+                            <span class="tag">minimalist</span>
+                            <span class="tag">business</span>
+                        </div>
+                    </div>
+                    <div class="soul-card" data-soul="linna">
+                        <div class="soul-avatar linna-avatar">
+                            <i class="fas fa-gift"></i>
+                        </div>
+                        <h3>Lin Na</h3>
+                        <p>Fashionable style, vibrant colors, energetic</p>
+                        <div class="soul-tags">
+                            <span class="tag">fashionable</span>
+                            <span class="tag">vibrant</span>
+                            <span class="tag">energetic</span>
+                        </div>
+                    </div>
+                    <div class="soul-card" data-soul="wangjing">
+                        <div class="soul-avatar wangjing-avatar">
+                            <i class="fas fa-heart"></i>
+                        </div>
+                        <h3>Wang Jing</h3>
+                        <p>Comfortable style, soft colors, serene</p>
+                        <div class="soul-tags">
+                            <span class="tag">comfortable</span>
+                            <span class="tag">soft</span>
+                            <span class="tag">serene</span>
+                        </div>
+                    </div>
                 </div>
             </section>
 
             <!-- 功能选择区域 -->
             <section class="function-selection">
-                <h2><i class="fas fa-cogs"></i> Select Function</h2>
+                <h2><i class="fas fa-cogs"></i> 选择功能</h2>
                 <div class="function-tabs">
                     <button class="tab-button active" data-tab="style">
-                        <i class="fas fa-palette"></i> Soul Style Generation
+                        <i class="fas fa-palette"></i> Soul 风格视频生成
                     </button>
                     <button class="tab-button" data-tab="selfie">
-                        <i class="fas fa-camera"></i> Soul Selfie
+                        <i class="fas fa-camera"></i> Soul 自拍视频
                     </button>
                 </div>
             </section>
@@ -91,27 +127,27 @@
             <!-- Soul风格生成区域 -->
             <section class="content-section" id="style-section">
                 <div class="form-container">
-                    <h3><i class="fas fa-palette"></i> Soul Style Image Generation</h3>
+                    <h3><i class="fas fa-palette"></i> Soul 风格视频生成</h3>
                     <form id="style-form">
                         <div class="form-group">
-                            <label for="style-cue">Describe the image you want:</label>
+                            <label for="style-cue">描述您想要的视频场景：</label>
                             <textarea 
                                 id="style-cue" 
-                                placeholder="例如：penguin in garden, cat playing with ball, sunset landscape..."
+                                placeholder="例如：bird flying in the sky, cat playing with ball, sunset landscape..."
                                 rows="3"
                             ></textarea>
                         </div>
                         <div class="form-group">
-                            <label for="user-id">User ID:</label>
+                            <label for="user-id">用户 ID：</label>
                             <input 
                                 type="text" 
                                 id="user-id" 
-                                placeholder="Enter your user ID"
+                                placeholder="输入您的用户 ID"
                                 value="user_001"
                             >
                         </div>
                         <button type="submit" class="generate-btn">
-                            <i class="fas fa-magic"></i> Generate Soul Style Image
+                            <i class="fas fa-video"></i> 生成 Soul 风格视频
                         </button>
                     </form>
                 </div>
@@ -120,10 +156,10 @@
             <!-- Soul自拍区域 -->
             <section class="content-section" id="selfie-section" style="display: none;">
                 <div class="form-container">
-                    <h3><i class="fas fa-camera"></i> Soul Selfie Generation</h3>
+                    <h3><i class="fas fa-camera"></i> Soul 自拍视频生成</h3>
                     <form id="selfie-form">
                         <div class="form-group">
-                            <label for="selfie-city">Select City:</label>
+                            <label for="selfie-city">选择城市：</label>
                             <select id="selfie-city">
                                 <option value="tokyo">Tokyo</option>
                                 <option value="paris">Paris</option>
@@ -133,7 +169,7 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label for="selfie-mood">Select Mood:</label>
+                            <label for="selfie-mood">选择情绪：</label>
                             <select id="selfie-mood">
                                 <option value="happy">Happy</option>
                                 <option value="excited">Excited</option>
@@ -143,16 +179,16 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label for="selfie-user-id">User ID:</label>
+                            <label for="selfie-user-id">用户 ID：</label>
                             <input 
                                 type="text" 
                                 id="selfie-user-id" 
-                                placeholder="Enter your user ID"
+                                placeholder="输入您的用户 ID"
                                 value="user_001"
                             >
                         </div>
                         <button type="submit" class="generate-btn">
-                            <i class="fas fa-camera"></i> Generate Soul Selfie
+                            <i class="fas fa-camera"></i> 生成 Soul 自拍视频
                         </button>
                     </form>
                 </div>
@@ -163,29 +199,29 @@
                 <div id="status-display" class="status-display">
                     <div class="status-item">
                         <i class="fas fa-info-circle"></i>
-                        <span>Ready, please select Soul and function</span>
+                        <span>就绪，请选择 Soul 和功能</span>
                     </div>
                 </div>
             </section>
 
             <!-- 结果展示区域 -->
             <section class="result-section">
-                <h3><i class="fas fa-images"></i> Generation Results</h3>
+                <h3><i class="fas fa-video"></i> 生成结果</h3>
                 <div id="result-container" class="result-container">
                     <div class="no-result">
-                        <i class="fas fa-image"></i>
-                        <p>No images generated yet, please select function and generate</p>
+                        <i class="fas fa-video"></i>
+                        <p>还没有生成视频，请选择功能并生成</p>
                     </div>
                 </div>
             </section>
 
             <!-- 历史记录区域 -->
             <section class="history-section">
-                <h3><i class="fas fa-history"></i> Generation History</h3>
+                <h3><i class="fas fa-history"></i> 生成历史</h3>
                 <div id="history-container" class="history-container">
                     <div class="no-history">
                         <i class="fas fa-clock"></i>
-                        <p>No generation history</p>
+                        <p>没有生成历史</p>
                     </div>
                 </div>
             </section>
@@ -196,6 +232,7 @@
             <div class="footer-links">
                 <a href="/docs" target="_blank">API Docs</a>
                 <a href="/info" target="_blank">System Info</a>
+                <a href="/">返回图片生成</a>
             </div>
         </footer>
     </div>
@@ -204,11 +241,12 @@
     <div id="loading-overlay" class="loading-overlay" style="display: none;">
         <div class="loading-content">
             <div class="spinner"></div>
-            <h3>Generating image...</h3>
-            <p id="loading-text">Please wait, AI is creating</p>
+            <h3>正在生成视频...</h3>
+            <p id="loading-text">请稍候，AI 正在创建视频</p>
         </div>
     </div>
 
-    <script src="/static/script.js?v=14.0"></script>
+    <script src="/static/wan_video.js?v=2.0"></script>
 </body>
 </html>
+
