@@ -4,6 +4,7 @@ import uuid
 from typing import Dict, List, Optional, Union
 import os
 from datetime import datetime
+import concurrent.futures
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse, RedirectResponse
@@ -50,8 +51,8 @@ MODEL_CONFIGS = {
 	# 新增：Gemini（通过 OpenAI 兼容接口接入现有 LlmFactory）
 	"gemini": {
 		"api_key": "AIzaSyBY6ZuSeq64JOhMLI1jJxnUMccNhCsHjUU",
-		"model": "gemini-2.5-flash",
-		"openai_base_url": "https://generativelanguage.googleapis.com/openai/"
+		"model": "gemini-2.0-flash",  # 使用 Gemini 2.0 Flash 稳定版本
+		"openai_base_url": "https://generativelanguage.googleapis.com/v1beta/openai/"  # OpenAI 兼容端点
 	}
 }
 
@@ -555,7 +556,7 @@ def create_app() -> FastAPI:
     def home():
         """重定向到OpenAPI文档"""
         return RedirectResponse(url="/docs")
-    
+
     # ========== 集成日记模块 ==========
     from diary.diary_scheduler import start_diary_scheduler, _scheduler
     from diary.diary_service import diary_service
