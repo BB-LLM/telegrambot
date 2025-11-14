@@ -99,18 +99,25 @@ class Qdrant(VectorStoreBase):
             self.client = client
         else:
             params = {}
-            if api_key:
-                params["api_key"] = api_key
-            if url:
-                params["url"] = url
-            if host and port:
-                params["host"] = host
-                params["port"] = port
-            if not params:
+            # 优先使用本地路径模式
+            if path:
                 params["path"] = path
                 if not on_disk:
                     if os.path.exists(path) and os.path.isdir(path):
                         shutil.rmtree(path)
+            # 如果没有 path，则使用远程连接
+            elif url:
+                params["url"] = url
+                if api_key:
+                    params["api_key"] = api_key
+            elif host and port:
+                params["host"] = host
+                params["port"] = port
+                if api_key:
+                    params["api_key"] = api_key
+            else:
+                # 默认使用内存模式
+                params["location"] = ":memory:"
 
             self.client = QdrantClient(**params)
 
