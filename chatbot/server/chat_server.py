@@ -18,6 +18,9 @@ from mem.memory.memory import Memory
 from mem.com.factory import LlmFactory
 from mem.vector_stores.prompts import NOVA_PROMPT
 
+# 导入 Soul 提示词
+from soul_prompts import get_soul_prompt
+
 # 导入情感主题检测模块
 from emotional.detector import detect_themes_and_tone, build_emotional_prompt
 
@@ -129,6 +132,7 @@ def create_app() -> FastAPI:
         message: str = Field(..., description="User's message")
         model: str = Field(default="glm-4-flash", description="Model to use")
         persona: Optional[str] = Field(default="", description="Bot persona")
+        soul_id: Optional[str] = Field(default="nova", description="Selected Soul ID (nova/valentina/lizhe/linna/wangjing)")
         frequency: int = Field(default=1, description="Memory extraction frequency")
         summary_frequency: int = Field(default=10, description="Summary frequency")
         scene: Optional[str] = Field(default="default", description="Selected situation scene (default/creative/contemplative/connection/growth/reflection)")
@@ -355,9 +359,12 @@ def create_app() -> FastAPI:
                     from personality.models import PersonalityData
                     personality_data = PersonalityData(user_id=user_id)
             
-            # 构建基础系统提示
+            # 构建基础系统提示 - 根据选中的 Soul 动态选择提示词
+            soul_id = chat_request.soul_id or "nova"  # 默认使用 nova
+            soul_prompt = get_soul_prompt(soul_id)
+
             base_system_prompt = "You are a role-playing expert. Based on the provided memory information, you will now assume the following role to chat with the user.\n" \
-                + NOVA_PROMPT + "\n" + memories_str
+                + soul_prompt + "\n" + memories_str
             
             # ========== 场景化提示增强（英文注释/提示词） ==========
             scene_section = ""
