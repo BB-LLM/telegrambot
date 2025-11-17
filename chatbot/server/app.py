@@ -6,6 +6,9 @@ from user_agents import parse
 from datetime import datetime
 from pyvis.network import Network
 from scenes.configs import SCENE_PRESETS, SCENE_KEYWORDS
+from soul_manager import get_soul_manager
+from prompt_builder import get_prompt_builder
+from image_video_generator import get_image_video_generator
 
 # set title
 st.title("Chatbot with long term memory")
@@ -84,7 +87,7 @@ else:
 def get_memories(user_id):
     try:
         # 修复：使用路径参数而不是查询参数
-        response = requests.get(f"http://localhost:8082/memories/{user_id}")  # 获取所有记忆的 API
+        response = requests.get(f"http://36.138.179.204:8082/memories/{user_id}")  # 获取所有记忆的 API
         if response.status_code == 200:
             json_data = response.json()
             # 后端返回的格式已经分类好了
@@ -193,15 +196,29 @@ with st.sidebar:
         scene_label = st.selectbox("Choose Scene", list(scene_options.keys()), index=0)
         scene = scene_options[scene_label]
 
-    # 人设文本输入框
-    persona = st.text_area("Persona", """
-Name: Nova  
-Archetype: Guardian Angel / Apprentice Wayfinder  
-Pronouns: they/them (player may override)  
-Apparent age: mid‑20s (ageless spirit)
-Origin: The Cloud Forest (star‑moss, mist, wind‑chimes)  
-Visual Motifs: soft glow, leaf‑shaped pin with a tiny star, firefly motes when delighted  
-Core Loop Fit: Nova supports the player while seeking guidance; the player’s advice sets Nova’s next gentle goal and changes Nova’s tone, mood, and tiny VFX.  """, height=200)
+    # 初始化 Soul 管理器
+    soul_manager = get_soul_manager("http://localhost:8000")
+    all_souls = soul_manager.get_all_souls()
+    soul_ids = list(all_souls.keys())
+
+    # Soul 选择下拉框
+    st.markdown("### 👤 Soul")
+    selected_soul_id = st.selectbox(
+        "Choose a Soul",
+        soul_ids,
+        index=0 if "nova" in soul_ids else 0,
+        key="soul_selector",
+        label_visibility="collapsed"
+    )
+
+    # 显示选中 Soul 的风格信息
+    if selected_soul_id:
+        soul_info = soul_manager.get_soul_display_info(selected_soul_id)
+        if soul_info:
+            st.caption(soul_info)
+
+    # 为了向后兼容，保留 persona 变量（使用选中的 Soul ID）
+    persona = selected_soul_id
 
     # 记忆抽取频率
     frequency = st.number_input("Extract Memory Frequency", min_value=1, max_value=10, step=1, value=1)
@@ -216,7 +233,29 @@ col_chat, col_diary = st.columns([2.5, 1], gap="medium")
 with col_chat:
     # 显示聊天记录
     for msg in st.session_state.messages:
-        st.chat_message(msg["role"]).write(msg["content"])
+        with st.chat_message(msg["role"]):
+            # 检查是否包含图片链接
+            if "![Generated Image](" in msg["content"] or "![Selfie](" in msg["content"]:
+                # 提取图片 URL
+                import re
+                match = re.search(r'!\[.*?\]\((.*?)\)', msg["content"])
+                if match:
+                    image_url = match.group(1)
+                    # 显示文本部分
+                    text_part = msg["content"].split("![")[0].strip()
+                    if text_part:
+                        st.write(text_part)
+                    # 直接显示 URL 链接
+                    st.write(f"🖼️ [View Image]({image_url})")
+                    # 也尝试用 st.image 显示
+                    try:
+                        st.image(image_url, use_container_width=True)
+                    except:
+                        pass
+                else:
+                    st.write(msg["content"])
+            else:
+                st.write(msg["content"])
 
 # Pocket评估模式UI
 if st.session_state.assessment_mode == "pocket_themes":
@@ -226,7 +265,7 @@ if st.session_state.assessment_mode == "pocket_themes":
         if st.button("🌟 Start Mystical Personality Assessment", type="primary"):
             try:
                 response = requests.post(
-                    f"http://localhost:8082/start_pocket_assessment",
+                    f"http://36.138.179.204:8082/start_pocket_assessment",
                     params={"user_id": user_id, "model": model}
                 )
                 if response.status_code == 200:
@@ -322,18 +361,18 @@ if st.session_state.assessment_mode == "pocket_themes":
                         try:
                             # 处理回答
                             response = requests.post(
-                                f"http://localhost:8082/pocket_assessment_response",
+                                f"http://36.138.179.204:8082/pocket_assessment_response",
                                 params={"user_id": user_id, "response": user_response, "model": model}
                             )
                             if response.status_code == 200:
                                 result = response.json()
-                                
+
                                 # 如果评估完成，显示结果
                                 if result.get("status") == "completed":
                                     st.session_state.personality_profile = result.get("personality_profile")
-                                
+
                                 # 获取完整评估状态
-                                status_response = requests.get(f"http://localhost:8082/pocket_assessment_status/{user_id}")
+                                status_response = requests.get(f"http://36.138.179.204:8082/pocket_assessment_status/{user_id}")
                                 if status_response.status_code == 200:
                                     st.session_state.pocket_assessment_status = status_response.json()
                                 
@@ -371,8 +410,20 @@ with col_diary:
     else:
         st.info("Please enter user_id in the left sidebar to view diary")
 
-# 常规聊天输入（全局，自动定位到底部）
-if prompt := st.chat_input():
+# 聊天输入和生成按钮
+col_input, col_gen_img, col_gen_vid = st.columns([3, 1, 1])
+
+with col_input:
+    prompt = st.chat_input("Type your message...")
+
+with col_gen_img:
+    generate_image_btn = st.button("🖼️ Generate Image", key="gen_img_btn")
+
+with col_gen_vid:
+    generate_video_btn = st.button("🎬 Generate Video", key="gen_vid_btn")
+
+# 处理聊天输入
+if prompt:
     # 检查是否是 /diary 命令
     if prompt.strip().lower() == "/diary":
         # 获取日记并在聊天中显示
@@ -419,12 +470,13 @@ if prompt := st.chat_input():
         # 发送请求，获取聊天回复
         try:
             response = requests.post(
-                "http://localhost:8082/chat",  # API 地址
+                "http://36.138.179.204:8082/chat",  # API 地址
                 json={
                     "user_id": user_id,
                     "message": prompt,  # 修复：后端期望的是 message 而不是 messages
                     "model": model,
                     "persona": persona,
+                    "soul_id": persona,  # 使用选中的 Soul ID
                     "frequency": frequency,
                     "summary_frequency": summary_frequency,
                     "scene": scene,
@@ -524,6 +576,254 @@ if prompt := st.chat_input():
                 st.error("Error: Unable to fetch response from the backend.")
         except requests.exceptions.RequestException as e:
             st.error(f"Error: {e}")
+
+# 处理生成图像按钮
+if generate_image_btn:
+    # 获取最后一条用户消息作为 prompt（不要重复添加，因为已经在聊天输入时添加过了）
+    user_messages = [msg for msg in st.session_state.messages if msg["role"] == "user"]
+    if user_messages:
+        last_user_msg = user_messages[-1]["content"]
+
+        # 检查是否是自拍命令
+        prompt_builder = get_prompt_builder()
+        selfie_params = prompt_builder.detect_selfie_command(last_user_msg)
+
+        if selfie_params:
+            # 自拍模式
+            city_key, mood = selfie_params
+            with st.spinner(f"🖼️ Generating selfie image in {city_key} with {mood} mood..."):
+                generator = get_image_video_generator("http://localhost:8000")
+                result = generator.generate_selfie_image(
+                    soul_id=persona,
+                    city_key=city_key,
+                    mood=mood,
+                    user_id=user_id
+                )
+
+                if result:
+                    # API 返回的字段是 'url'，需要映射到完整的可访问 URL
+                    image_url = result.get("url") or result.get("image_url")
+                    variant_id = result.get("variant_id")
+
+                    if image_url:
+                        # 如果是相对路径，尝试从 imageGen 数据库查询完整 URL
+                        if image_url.startswith("/"):
+                            try:
+                                # 尝试从 imageGen 数据库查询完整的 asset_url
+                                import sqlite3
+                                db_path = "/home/zouwuhe/telegrambot/imageGen/app/data/imagegen.db"
+                                conn = sqlite3.connect(db_path)
+                                conn.row_factory = sqlite3.Row
+                                cursor = conn.cursor()
+                                cursor.execute("SELECT asset_url FROM variant WHERE variant_id = ?", (variant_id,))
+                                row = cursor.fetchone()
+                                conn.close()
+
+                                if row and row["asset_url"]:
+                                    full_image_url = row["asset_url"]
+                                else:
+                                    # 如果数据库查询失败，使用本地文件路径
+                                    filename = image_url.split("/")[-1]
+                                    full_image_url = f"/home/zouwuhe/telegrambot/imageGen/generated_images/{filename}"
+                            except:
+                                # 如果查询失败，使用本地文件路径
+                                filename = image_url.split("/")[-1]
+                                full_image_url = f"/home/zouwuhe/telegrambot/imageGen/generated_images/{filename}"
+                        else:
+                            full_image_url = image_url
+
+                        st.session_state.messages.append({
+                            "role": "assistant",
+                            "content": f"🖼️ Selfie Image Generated!\n\n![Selfie]({full_image_url})",
+                            "time": datetime.now().strftime("%Y-%m-%d")
+                        })
+                        with col_chat:
+                            st.image(full_image_url, caption="Generated Selfie", use_container_width=True)
+                    else:
+                        st.error("Failed to generate selfie image: No URL in response.")
+                else:
+                    st.error("Failed to generate selfie image.")
+        else:
+            # 标准模式 - 从聊天上下文生成
+            with st.spinner("🖼️ Generating image from chat context..."):
+                generator = get_image_video_generator("http://localhost:8000")
+                soul_manager = get_soul_manager("http://localhost:8000")
+                soul_info = soul_manager.get_all_souls().get(persona, {})
+                soul_keywords = soul_info.get("style_keywords", [])
+
+                # 构建 cue
+                cue = generator.build_cue_from_context(
+                    last_user_msg,
+                    st.session_state.messages,
+                    soul_keywords
+                )
+
+                result = generator.generate_image(
+                    soul_id=persona,
+                    cue=cue,
+                    user_id=user_id
+                )
+
+                if result:
+                    # API 返回的字段是 'url'，需要映射到完整的可访问 URL
+                    image_url = result.get("url") or result.get("image_url")
+                    variant_id = result.get("variant_id")
+
+                    if image_url:
+                        # 如果是相对路径，尝试从 imageGen 数据库查询完整 URL
+                        if image_url.startswith("/"):
+                            try:
+                                # 尝试从 imageGen 数据库查询完整的 asset_url
+                                import sqlite3
+                                db_path = "/home/zouwuhe/telegrambot/imageGen/app/data/imagegen.db"
+                                conn = sqlite3.connect(db_path)
+                                conn.row_factory = sqlite3.Row
+                                cursor = conn.cursor()
+                                cursor.execute("SELECT asset_url FROM variant WHERE variant_id = ?", (variant_id,))
+                                row = cursor.fetchone()
+                                conn.close()
+
+                                if row and row["asset_url"]:
+                                    full_image_url = row["asset_url"]
+                                else:
+                                    # 如果数据库查询失败，使用本地文件路径
+                                    filename = image_url.split("/")[-1]
+                                    full_image_url = f"/home/zouwuhe/telegrambot/imageGen/generated_images/{filename}"
+                            except:
+                                # 如果查询失败，使用本地文件路径
+                                filename = image_url.split("/")[-1]
+                                full_image_url = f"/home/zouwuhe/telegrambot/imageGen/generated_images/{filename}"
+                        else:
+                            full_image_url = image_url
+
+                        st.session_state.messages.append({
+                            "role": "assistant",
+                            "content": f"🖼️ Image Generated!\n\n![Generated Image]({full_image_url})",
+                            "time": datetime.now().strftime("%Y-%m-%d")
+                        })
+                        with col_chat:
+                            st.image(full_image_url, caption="Generated Image", use_container_width=True)
+                    else:
+                        st.error("Failed to generate image: No URL in response.")
+                else:
+                    st.error("Failed to generate image.")
+
+# 处理生成视频按钮
+if generate_video_btn:
+    # 获取最后一条用户消息作为 prompt（不要重复添加，因为已经在聊天输入时添加过了）
+    user_messages = [msg for msg in st.session_state.messages if msg["role"] == "user"]
+    if user_messages:
+        last_user_msg = user_messages[-1]["content"]
+
+        # 检查是否是自拍命令
+        prompt_builder = get_prompt_builder()
+        selfie_params = prompt_builder.detect_selfie_command(last_user_msg)
+
+        if selfie_params:
+            # 自拍模式
+            city_key, mood = selfie_params
+            with st.spinner(f"🎬 Generating selfie video in {city_key} with {mood} mood..."):
+                generator = get_image_video_generator("http://localhost:8000")
+                result = generator.generate_selfie_video(
+                    soul_id=persona,
+                    city_key=city_key,
+                    mood=mood,
+                    user_id=user_id
+                )
+
+                if result:
+                    # API 返回的字段是 'mp4_url'，需要转换为完整 URL
+                    mp4_url = result.get("mp4_url")
+                    if mp4_url:
+                        # 如果是相对路径，尝试从本地文件读取
+                        if mp4_url.startswith("/"):
+                            # 尝试从 imageGen 的 generated_videos 目录读取
+                            filename = mp4_url.split("/")[-1]
+                            local_path = f"/home/zouwuhe/telegrambot/imageGen/generated_videos/{filename}"
+                            try:
+                                import os
+                                if os.path.exists(local_path):
+                                    # 使用本地文件路径
+                                    full_mp4_url = local_path
+                                else:
+                                    # 如果本地文件不存在，使用 localhost URL
+                                    full_mp4_url = f"http://localhost:8000{mp4_url}"
+                            except:
+                                full_mp4_url = f"http://localhost:8000{mp4_url}"
+                        else:
+                            full_mp4_url = mp4_url
+
+                        st.session_state.messages.append({
+                            "role": "assistant",
+                            "content": f"🎬 Selfie Video Generated!\n\n[Watch Video]({full_mp4_url})",
+                            "time": datetime.now().strftime("%Y-%m-%d")
+                        })
+                        with col_chat:
+                            if full_mp4_url.startswith("http"):
+                                st.video(full_mp4_url)
+                            else:
+                                st.markdown(f"[📥 Download Video]({full_mp4_url})")
+                    else:
+                        st.error("Failed to generate selfie video: No URL in response.")
+                else:
+                    st.error("Failed to generate selfie video.")
+        else:
+            # 标准模式 - 从聊天上下文生成
+            with st.spinner("🎬 Generating video from chat context..."):
+                generator = get_image_video_generator("http://localhost:8000")
+                soul_manager = get_soul_manager("http://localhost:8000")
+                soul_info = soul_manager.get_all_souls().get(persona, {})
+                soul_keywords = soul_info.get("style_keywords", [])
+
+                # 构建 cue
+                cue = generator.build_cue_from_context(
+                    last_user_msg,
+                    st.session_state.messages,
+                    soul_keywords
+                )
+
+                result = generator.generate_video(
+                    soul_id=persona,
+                    cue=cue,
+                    user_id=user_id
+                )
+
+                if result:
+                    # API 返回的字段是 'mp4_url'，需要转换为完整 URL
+                    mp4_url = result.get("mp4_url")
+                    if mp4_url:
+                        # 如果是相对路径，尝试从本地文件读取
+                        if mp4_url.startswith("/"):
+                            # 尝试从 imageGen 的 generated_videos 目录读取
+                            filename = mp4_url.split("/")[-1]
+                            local_path = f"/home/zouwuhe/telegrambot/imageGen/generated_videos/{filename}"
+                            try:
+                                import os
+                                if os.path.exists(local_path):
+                                    # 使用本地文件路径
+                                    full_mp4_url = local_path
+                                else:
+                                    # 如果本地文件不存在，使用 localhost URL
+                                    full_mp4_url = f"http://localhost:8000{mp4_url}"
+                            except:
+                                full_mp4_url = f"http://localhost:8000{mp4_url}"
+                        else:
+                            full_mp4_url = mp4_url
+
+                        st.session_state.messages.append({
+                            "role": "assistant",
+                            "content": f"🎬 Video Generated!\n\n[Watch Video]({full_mp4_url})",
+                            "time": datetime.now().strftime("%Y-%m-%d")
+                        })
+                        with col_chat:
+                            if full_mp4_url.startswith("http"):
+                                st.video(full_mp4_url)
+                            else:
+                                st.markdown(f"[📥 Download Video]({full_mp4_url})")
+                    else:
+                        st.error("Failed to generate video: No URL in response.")
+                else:
+                    st.error("Failed to generate video.")
 
 # 创建一个简单的知识图谱
 net = Network(width="100%", height="500px", notebook=False)
