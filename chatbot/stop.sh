@@ -13,8 +13,8 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-PROJECT_DIR="/home/zouwuhe/telegrambot/chatbot"
-LOG_DIR="/home/zouwuhe/telegrambot/logs"
+PROJECT_DIR="/home/hongxda/telegrambot/chatbot"
+LOG_DIR="/home/hongxda/telegrambot/logs"
 
 echo -e "${BLUE}========================================${NC}"
 echo -e "${BLUE}  chatbot 服务停止${NC}"
@@ -74,6 +74,6 @@ echo -e "${BLUE}========================================${NC}"
 echo ""
 echo -e "${YELLOW}💡 提示:${NC}"
 echo -e "  - 重新启动: ./start.sh"
-echo -e "  - 查看日志: tail -f /home/zouwuhe/telegrambot/logs/chatbot_backend_*.log"
+echo -e "  - 查看日志: tail -f /home/hongxda/telegrambot/logs/chatbot_backend_*.log"
 echo ""
 

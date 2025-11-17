@@ -611,7 +611,7 @@ if generate_image_btn:
                             try:
                                 # 尝试从 imageGen 数据库查询完整的 asset_url
                                 import sqlite3
-                                db_path = "/home/zouwuhe/telegrambot/imageGen/app/data/imagegen.db"
+                                db_path = "/home/hongxda/telegrambot/imageGen/app/data/imagegen.db"
                                 conn = sqlite3.connect(db_path)
                                 conn.row_factory = sqlite3.Row
                                 cursor = conn.cursor()
@@ -624,11 +624,11 @@ if generate_image_btn:
                                 else:
                                     # 如果数据库查询失败，使用本地文件路径
                                     filename = image_url.split("/")[-1]
-                                    full_image_url = f"/home/zouwuhe/telegrambot/imageGen/generated_images/{filename}"
+                                    full_image_url = f"/home/hongxda/telegrambot/imageGen/generated_images/{filename}"
                             except:
                                 # 如果查询失败，使用本地文件路径
                                 filename = image_url.split("/")[-1]
-                                full_image_url = f"/home/zouwuhe/telegrambot/imageGen/generated_images/{filename}"
+                                full_image_url = f"/home/hongxda/telegrambot/imageGen/generated_images/{filename}"
                         else:
                             full_image_url = image_url
 
@@ -675,7 +675,7 @@ if generate_image_btn:
                             try:
                                 # 尝试从 imageGen 数据库查询完整的 asset_url
                                 import sqlite3
-                                db_path = "/home/zouwuhe/telegrambot/imageGen/app/data/imagegen.db"
+                                db_path = "/home/hongxda/telegrambot/imageGen/app/data/imagegen.db"
                                 conn = sqlite3.connect(db_path)
                                 conn.row_factory = sqlite3.Row
                                 cursor = conn.cursor()
@@ -688,11 +688,11 @@ if generate_image_btn:
                                 else:
                                     # 如果数据库查询失败，使用本地文件路径
                                     filename = image_url.split("/")[-1]
-                                    full_image_url = f"/home/zouwuhe/telegrambot/imageGen/generated_images/{filename}"
+                                    full_image_url = f"/home/hongxda/telegrambot/imageGen/generated_images/{filename}"
                             except:
                                 # 如果查询失败，使用本地文件路径
                                 filename = image_url.split("/")[-1]
-                                full_image_url = f"/home/zouwuhe/telegrambot/imageGen/generated_images/{filename}"
+                                full_image_url = f"/home/hongxda/telegrambot/imageGen/generated_images/{filename}"
                         else:
                             full_image_url = image_url
 
@@ -739,7 +739,7 @@ if generate_video_btn:
                         if mp4_url.startswith("/"):
                             # 尝试从 imageGen 的 generated_videos 目录读取
                             filename = mp4_url.split("/")[-1]
-                            local_path = f"/home/zouwuhe/telegrambot/imageGen/generated_videos/{filename}"
+                            local_path = f"/home/hongxda/telegrambot/imageGen/generated_videos/{filename}"
                             try:
                                 import os
                                 if os.path.exists(local_path):
@@ -796,7 +796,7 @@ if generate_video_btn:
                         if mp4_url.startswith("/"):
                             # 尝试从 imageGen 的 generated_videos 目录读取
                             filename = mp4_url.split("/")[-1]
-                            local_path = f"/home/zouwuhe/telegrambot/imageGen/generated_videos/{filename}"
+                            local_path = f"/home/hongxda/telegrambot/imageGen/generated_videos/{filename}"
                             try:
                                 import os
                                 if os.path.exists(local_path):

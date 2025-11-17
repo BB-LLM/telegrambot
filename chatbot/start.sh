@@ -16,11 +16,11 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # 配置
-PROJECT_DIR="/home/zouwuhe/telegrambot/chatbot"
-LOG_DIR="/home/zouwuhe/telegrambot/logs"
+PROJECT_DIR="/home/hongxda/telegrambot/chatbot"
+LOG_DIR="/home/hongxda/telegrambot/chatbot/logs"
 LOG_FILE_BACKEND="${LOG_DIR}/chatbot_backend_$(date +%Y%m%d_%H%M%S).log"
 LOG_FILE_FRONTEND="${LOG_DIR}/chatbot_frontend_$(date +%Y%m%d_%H%M%S).log"
-VENV_DIR="/home/zouwuhe/telegrambot/chatbot/venv"
+VENV_DIR="/home/hongxda/telegrambot/chatbot/venv"
 BACKEND_PORT=8082
 FRONTEND_PORT=8081
 
