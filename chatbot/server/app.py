@@ -87,7 +87,7 @@ else:
 def get_memories(user_id):
     try:
         # 修复：使用路径参数而不是查询参数
-        response = requests.get(f"http://36.138.179.204:8082/memories/{user_id}")  # 获取所有记忆的 API
+        response = requests.get(f"http://34.148.51.133:8082/memories/{user_id}")  # 获取所有记忆的 API
         if response.status_code == 200:
             json_data = response.json()
             # 后端返回的格式已经分类好了
@@ -197,7 +197,7 @@ with st.sidebar:
         scene = scene_options[scene_label]
 
     # 初始化 Soul 管理器
-    soul_manager = get_soul_manager("http://localhost:8000")
+    soul_manager = get_soul_manager("http://34.148.94.241:8000")
     all_souls = soul_manager.get_all_souls()
     soul_ids = list(all_souls.keys())
 
@@ -265,7 +265,7 @@ if st.session_state.assessment_mode == "pocket_themes":
         if st.button("🌟 Start Mystical Personality Assessment", type="primary"):
             try:
                 response = requests.post(
-                    f"http://36.138.179.204:8082/start_pocket_assessment",
+                    f"http://34.148.51.133:8082/start_pocket_assessment",
                     params={"user_id": user_id, "model": model}
                 )
                 if response.status_code == 200:
@@ -361,7 +361,7 @@ if st.session_state.assessment_mode == "pocket_themes":
                         try:
                             # 处理回答
                             response = requests.post(
-                                f"http://36.138.179.204:8082/pocket_assessment_response",
+                                f"http://34.148.51.133:8082/pocket_assessment_response",
                                 params={"user_id": user_id, "response": user_response, "model": model}
                             )
                             if response.status_code == 200:
@@ -372,7 +372,7 @@ if st.session_state.assessment_mode == "pocket_themes":
                                     st.session_state.personality_profile = result.get("personality_profile")
 
                                 # 获取完整评估状态
-                                status_response = requests.get(f"http://36.138.179.204:8082/pocket_assessment_status/{user_id}")
+                                status_response = requests.get(f"http://34.148.51.133:8082/pocket_assessment_status/{user_id}")
                                 if status_response.status_code == 200:
                                     st.session_state.pocket_assessment_status = status_response.json()
                                 
@@ -470,7 +470,7 @@ if prompt:
         # 发送请求，获取聊天回复
         try:
             response = requests.post(
-                "http://36.138.179.204:8082/chat",  # API 地址
+                "http://34.148.51.133:8082/chat",  # API 地址
                 json={
                     "user_id": user_id,
                     "message": prompt,  # 修复：后端期望的是 message 而不是 messages
@@ -592,7 +592,7 @@ if generate_image_btn:
             # 自拍模式
             city_key, mood = selfie_params
             with st.spinner(f"🖼️ Generating selfie image in {city_key} with {mood} mood..."):
-                generator = get_image_video_generator("http://localhost:8000")
+                generator = get_image_video_generator("http://34.148.94.241:8000")
                 result = generator.generate_selfie_image(
                     soul_id=persona,
                     city_key=city_key,
@@ -646,8 +646,8 @@ if generate_image_btn:
         else:
             # 标准模式 - 从聊天上下文生成
             with st.spinner("🖼️ Generating image from chat context..."):
-                generator = get_image_video_generator("http://localhost:8000")
-                soul_manager = get_soul_manager("http://localhost:8000")
+                generator = get_image_video_generator("http://34.148.94.241:8000")
+                soul_manager = get_soul_manager("http://34.148.94.241:8000")
                 soul_info = soul_manager.get_all_souls().get(persona, {})
                 soul_keywords = soul_info.get("style_keywords", [])
 
@@ -723,7 +723,7 @@ if generate_video_btn:
             # 自拍模式
             city_key, mood = selfie_params
             with st.spinner(f"🎬 Generating selfie video in {city_key} with {mood} mood..."):
-                generator = get_image_video_generator("http://localhost:8000")
+                generator = get_image_video_generator("http://34.148.94.241:8000")
                 result = generator.generate_selfie_video(
                     soul_id=persona,
                     city_key=city_key,
@@ -747,9 +747,9 @@ if generate_video_btn:
                                     full_mp4_url = local_path
                                 else:
                                     # 如果本地文件不存在，使用 localhost URL
-                                    full_mp4_url = f"http://localhost:8000{mp4_url}"
+                                    full_mp4_url = f"http://34.148.94.241:8000{mp4_url}"
                             except:
-                                full_mp4_url = f"http://localhost:8000{mp4_url}"
+                                full_mp4_url = f"http://34.148.94.241:8000{mp4_url}"
                         else:
                             full_mp4_url = mp4_url
 
@@ -770,8 +770,8 @@ if generate_video_btn:
         else:
             # 标准模式 - 从聊天上下文生成
             with st.spinner("🎬 Generating video from chat context..."):
-                generator = get_image_video_generator("http://localhost:8000")
-                soul_manager = get_soul_manager("http://localhost:8000")
+                generator = get_image_video_generator("http://34.148.94.241:8000")
+                soul_manager = get_soul_manager("http://34.148.94.241:8000")
                 soul_info = soul_manager.get_all_souls().get(persona, {})
                 soul_keywords = soul_info.get("style_keywords", [])
 
@@ -804,9 +804,9 @@ if generate_video_btn:
                                     full_mp4_url = local_path
                                 else:
                                     # 如果本地文件不存在，使用 localhost URL
-                                    full_mp4_url = f"http://localhost:8000{mp4_url}"
+                                    full_mp4_url = f"http://34.148.94.241:8000{mp4_url}"
                             except:
-                                full_mp4_url = f"http://localhost:8000{mp4_url}"
+                                full_mp4_url = f"http://34.148.94.241:8000{mp4_url}"
                         else:
                             full_mp4_url = mp4_url
 

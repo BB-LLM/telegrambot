@@ -10,7 +10,7 @@ class TestChatServerRequests(unittest.TestCase):
     def setUp(self):
         """测试前的初始化工作"""
         # 服务基础URL
-        self.base_url = "http://localhost:8000"
+        self.base_url = "http://34.148.94.241:8000"
         # 生成唯一的用户ID用于测试
         self.user_id = f"test_user_{uuid.uuid4().hex[:8]}"
         # 初始化测试数据
