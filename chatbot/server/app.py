@@ -612,29 +612,13 @@ if generate_image_btn:
                     variant_id = result.get("variant_id")
 
                     if image_url:
-                        # 如果是相对路径，尝试从 imageGen 数据库查询完整 URL
+                        # 如果是相对路径，转换为 imageGen 服务器的公网 URL
                         if image_url.startswith("/"):
-                            try:
-                                # 尝试从 imageGen 数据库查询完整的 asset_url
-                                import sqlite3
-                                db_path = "/home/hongxda/telegrambot/imageGen/app/data/imagegen.db"
-                                conn = sqlite3.connect(db_path)
-                                conn.row_factory = sqlite3.Row
-                                cursor = conn.cursor()
-                                cursor.execute("SELECT asset_url FROM variant WHERE variant_id = ?", (variant_id,))
-                                row = cursor.fetchone()
-                                conn.close()
-
-                                if row and row["asset_url"]:
-                                    full_image_url = row["asset_url"]
-                                else:
-                                    # 如果数据库查询失败，使用本地文件路径
-                                    filename = image_url.split("/")[-1]
-                                    full_image_url = f"/home/hongxda/telegrambot/imageGen/generated_images/{filename}"
-                            except:
-                                # 如果查询失败，使用本地文件路径
-                                filename = image_url.split("/")[-1]
-                                full_image_url = f"/home/hongxda/telegrambot/imageGen/generated_images/{filename}"
+                            # 提取文件名
+                            filename = image_url.split("/")[-1]
+                            # 使用 imageGen 服务器的公网地址
+                            full_image_url = f"http://34.148.94.241:8000{image_url}"
+                            logger.info(f"[Generate Selfie Image] Converted relative path to public URL: {full_image_url}")
                         else:
                             full_image_url = image_url
 
@@ -683,29 +667,13 @@ if generate_image_btn:
                     variant_id = result.get("variant_id")
 
                     if image_url:
-                        # 如果是相对路径，尝试从 imageGen 数据库查询完整 URL
+                        # 如果是相对路径，转换为 imageGen 服务器的公网 URL
                         if image_url.startswith("/"):
-                            try:
-                                # 尝试从 imageGen 数据库查询完整的 asset_url
-                                import sqlite3
-                                db_path = "/home/hongxda/telegrambot/imageGen/app/data/imagegen.db"
-                                conn = sqlite3.connect(db_path)
-                                conn.row_factory = sqlite3.Row
-                                cursor = conn.cursor()
-                                cursor.execute("SELECT asset_url FROM variant WHERE variant_id = ?", (variant_id,))
-                                row = cursor.fetchone()
-                                conn.close()
-
-                                if row and row["asset_url"]:
-                                    full_image_url = row["asset_url"]
-                                else:
-                                    # 如果数据库查询失败，使用本地文件路径
-                                    filename = image_url.split("/")[-1]
-                                    full_image_url = f"/home/hongxda/telegrambot/imageGen/generated_images/{filename}"
-                            except:
-                                # 如果查询失败，使用本地文件路径
-                                filename = image_url.split("/")[-1]
-                                full_image_url = f"/home/hongxda/telegrambot/imageGen/generated_images/{filename}"
+                            # 提取文件名
+                            filename = image_url.split("/")[-1]
+                            # 使用 imageGen 服务器的公网地址
+                            full_image_url = f"http://34.148.94.241:8000{image_url}"
+                            logger.info(f"[Generate Image] Converted relative path to public URL: {full_image_url}")
                         else:
                             full_image_url = image_url
 
@@ -747,25 +715,32 @@ if generate_video_btn:
                 )
 
                 if result:
-                    # API 返回的字段是 'gif_url'（已经是完整的公网 URL）
+                    # API 返回的字段是 'gif_url'，需要转换为完整的公网 URL
                     gif_url = result.get("gif_url", "")
 
                     if gif_url:
+                        # 如果是相对路径，转换为 imageGen 服务器的公网 URL
+                        if gif_url.startswith("/"):
+                            full_gif_url = f"http://34.148.94.241:8000{gif_url}"
+                            logger.info(f"[Generate Selfie Video] Converted relative path to public URL: {full_gif_url}")
+                        else:
+                            full_gif_url = gif_url
+
                         # 提取文件名用于显示
-                        gif_filename = gif_url.split("/")[-1] if "/" in gif_url else gif_url
+                        gif_filename = full_gif_url.split("/")[-1] if "/" in full_gif_url else full_gif_url
 
                         st.session_state.messages.append({
                             "role": "assistant",
-                            "content": f"🎬 Selfie Video Generated!\n\n[{gif_filename}]({gif_url})",
+                            "content": f"🎬 Selfie Video Generated!\n\n[{gif_filename}]({full_gif_url})",
                             "time": datetime.now().strftime("%Y-%m-%d")
                         })
 
                         with col_chat:
                             # 只显示 GIF 动画
-                            st.image(gif_url, caption=gif_filename, use_container_width=True)
+                            st.image(full_gif_url, caption=gif_filename, use_container_width=True)
 
                             # 显示下载链接，只显示文件名
-                            st.markdown(f"[📥 {gif_filename}]({gif_url})")
+                            st.markdown(f"[📥 {gif_filename}]({full_gif_url})")
                     else:
                         st.error("Failed to generate selfie video: No GIF URL in response.")
                 else:
@@ -799,25 +774,32 @@ if generate_video_btn:
                     result = None
 
                 if result:
-                    # API 返回的字段是 'gif_url'（已经是完整的公网 URL）
+                    # API 返回的字段是 'gif_url'，需要转换为完整的公网 URL
                     gif_url = result.get("gif_url", "")
 
                     if gif_url:
+                        # 如果是相对路径，转换为 imageGen 服务器的公网 URL
+                        if gif_url.startswith("/"):
+                            full_gif_url = f"http://34.148.94.241:8000{gif_url}"
+                            logger.info(f"[Generate Video] Converted relative path to public URL: {full_gif_url}")
+                        else:
+                            full_gif_url = gif_url
+
                         # 提取文件名用于显示
-                        gif_filename = gif_url.split("/")[-1] if "/" in gif_url else gif_url
+                        gif_filename = full_gif_url.split("/")[-1] if "/" in full_gif_url else full_gif_url
 
                         st.session_state.messages.append({
                             "role": "assistant",
-                            "content": f"🎬 Video Generated!\n\n[{gif_filename}]({gif_url})",
+                            "content": f"🎬 Video Generated!\n\n[{gif_filename}]({full_gif_url})",
                             "time": datetime.now().strftime("%Y-%m-%d")
                         })
 
                         with col_chat:
                             # 只显示 GIF 动画
-                            st.image(gif_url, caption=gif_filename, use_container_width=True)
+                            st.image(full_gif_url, caption=gif_filename, use_container_width=True)
 
                             # 显示下载链接，只显示文件名
-                            st.markdown(f"[📥 {gif_filename}]({gif_url})")
+                            st.markdown(f"[📥 {gif_filename}]({full_gif_url})")
                     else:
                         st.error("Failed to generate video: No GIF URL in response.")
                 else:
