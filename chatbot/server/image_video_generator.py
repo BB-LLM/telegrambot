@@ -69,12 +69,12 @@ class ImageVideoGenerator:
     ) -> Optional[Dict]:
         """
         生成视频
-        
+
         Args:
             soul_id: Soul ID
             cue: 提示词
             user_id: 用户 ID
-        
+
         Returns:
             API 响应字典，包含 mp4_url 等信息
         """
@@ -85,9 +85,10 @@ class ImageVideoGenerator:
                 "cue": cue,
                 "user_id": user_id
             }
-            
+
             logger.info(f"Calling imageGen API: {url} with params: {params}")
-            response = requests.get(url, params=params, timeout=120)
+            # 增加超时时间
+            response = requests.get(url, params=params, timeout=1500)
             
             if response.status_code == 200:
                 result = response.json()
@@ -151,13 +152,13 @@ class ImageVideoGenerator:
     ) -> Optional[Dict]:
         """
         生成自拍视频
-        
+
         Args:
             soul_id: Soul ID
             city_key: 城市键（paris, tokyo, newyork, london, rome）
             mood: 心情（happy, sad, excited, calm, romantic, adventurous）
             user_id: 用户 ID
-        
+
         Returns:
             API 响应字典，包含 mp4_url 等信息
         """
@@ -169,9 +170,10 @@ class ImageVideoGenerator:
                 "mood": mood,
                 "user_id": user_id
             }
-            
+
             logger.info(f"Calling imageGen API: {url} with payload: {payload}")
-            response = requests.post(url, json=payload, timeout=120)
+            # 增加超时时间
+            response = requests.post(url, json=payload, timeout=1500)
             
             if response.status_code == 200:
                 result = response.json()
