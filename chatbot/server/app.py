@@ -1,6 +1,7 @@
 import requests
 import streamlit as st
 import uuid
+import os
 from loguru import logger
 from user_agents import parse
 from datetime import datetime
@@ -9,6 +10,9 @@ from scenes.configs import SCENE_PRESETS, SCENE_KEYWORDS
 from soul_manager import get_soul_manager
 from prompt_builder import get_prompt_builder
 from image_video_generator import get_image_video_generator
+
+# 公网地址配置（用于生成的媒体文件访问）
+PUBLIC_IMAGEGEN_URL = os.getenv("PUBLIC_IMAGEGEN_URL", "http://36.138.179.204:8000")
 
 # set title
 st.title("Chatbot with long term memory")
@@ -583,10 +587,12 @@ if generate_image_btn:
     user_messages = [msg for msg in st.session_state.messages if msg["role"] == "user"]
     if user_messages:
         last_user_msg = user_messages[-1]["content"]
+        logger.info(f"[Generate Image] Last user message: {last_user_msg}")
 
         # 检查是否是自拍命令
         prompt_builder = get_prompt_builder()
         selfie_params = prompt_builder.detect_selfie_command(last_user_msg)
+        logger.info(f"[Generate Image] Selfie params: {selfie_params}")
 
         if selfie_params:
             # 自拍模式
@@ -650,6 +656,7 @@ if generate_image_btn:
                 soul_manager = get_soul_manager("http://34.148.94.241:8000")
                 soul_info = soul_manager.get_all_souls().get(persona, {})
                 soul_keywords = soul_info.get("style_keywords", [])
+                logger.info(f"[Generate Image] Soul keywords: {soul_keywords}")
 
                 # 构建 cue
                 cue = generator.build_cue_from_context(
@@ -657,12 +664,18 @@ if generate_image_btn:
                     st.session_state.messages,
                     soul_keywords
                 )
+                logger.info(f"[Generate Image] Built cue: {cue}")
 
-                result = generator.generate_image(
-                    soul_id=persona,
-                    cue=cue,
-                    user_id=user_id
-                )
+                try:
+                    result = generator.generate_image(
+                        soul_id=persona,
+                        cue=cue,
+                        user_id=user_id
+                    )
+                    logger.info(f"[Generate Image] API result: {result}")
+                except Exception as e:
+                    logger.error(f"[Generate Image] API call failed: {e}")
+                    result = None
 
                 if result:
                     # API 返回的字段是 'url'，需要映射到完整的可访问 URL
@@ -714,10 +727,12 @@ if generate_video_btn:
     user_messages = [msg for msg in st.session_state.messages if msg["role"] == "user"]
     if user_messages:
         last_user_msg = user_messages[-1]["content"]
+        logger.info(f"[Generate Video] Last user message: {last_user_msg}")
 
         # 检查是否是自拍命令
         prompt_builder = get_prompt_builder()
         selfie_params = prompt_builder.detect_selfie_command(last_user_msg)
+        logger.info(f"[Generate Video] Selfie params: {selfie_params}")
 
         if selfie_params:
             # 自拍模式
@@ -732,39 +747,27 @@ if generate_video_btn:
                 )
 
                 if result:
-                    # API 返回的字段是 'mp4_url'，需要转换为完整 URL
-                    mp4_url = result.get("mp4_url")
-                    if mp4_url:
-                        # 如果是相对路径，尝试从本地文件读取
-                        if mp4_url.startswith("/"):
-                            # 尝试从 imageGen 的 generated_videos 目录读取
-                            filename = mp4_url.split("/")[-1]
-                            local_path = f"/home/hongxda/telegrambot/imageGen/generated_videos/{filename}"
-                            try:
-                                import os
-                                if os.path.exists(local_path):
-                                    # 使用本地文件路径
-                                    full_mp4_url = local_path
-                                else:
-                                    # 如果本地文件不存在，使用 localhost URL
-                                    full_mp4_url = f"http://34.148.94.241:8000{mp4_url}"
-                            except:
-                                full_mp4_url = f"http://34.148.94.241:8000{mp4_url}"
-                        else:
-                            full_mp4_url = mp4_url
+                    # API 返回的字段是 'gif_url'（已经是完整的公网 URL）
+                    gif_url = result.get("gif_url", "")
+
+                    if gif_url:
+                        # 提取文件名用于显示
+                        gif_filename = gif_url.split("/")[-1] if "/" in gif_url else gif_url
 
                         st.session_state.messages.append({
                             "role": "assistant",
-                            "content": f"🎬 Selfie Video Generated!\n\n[Watch Video]({full_mp4_url})",
+                            "content": f"🎬 Selfie Video Generated!\n\n[{gif_filename}]({gif_url})",
                             "time": datetime.now().strftime("%Y-%m-%d")
                         })
+
                         with col_chat:
-                            if full_mp4_url.startswith("http"):
-                                st.video(full_mp4_url)
-                            else:
-                                st.markdown(f"[📥 Download Video]({full_mp4_url})")
+                            # 只显示 GIF 动画
+                            st.image(gif_url, caption=gif_filename, use_container_width=True)
+
+                            # 显示下载链接，只显示文件名
+                            st.markdown(f"[📥 {gif_filename}]({gif_url})")
                     else:
-                        st.error("Failed to generate selfie video: No URL in response.")
+                        st.error("Failed to generate selfie video: No GIF URL in response.")
                 else:
                     st.error("Failed to generate selfie video.")
         else:
@@ -774,6 +777,7 @@ if generate_video_btn:
                 soul_manager = get_soul_manager("http://34.148.94.241:8000")
                 soul_info = soul_manager.get_all_souls().get(persona, {})
                 soul_keywords = soul_info.get("style_keywords", [])
+                logger.info(f"[Generate Video] Soul keywords: {soul_keywords}")
 
                 # 构建 cue
                 cue = generator.build_cue_from_context(
@@ -781,47 +785,41 @@ if generate_video_btn:
                     st.session_state.messages,
                     soul_keywords
                 )
+                logger.info(f"[Generate Video] Built cue: {cue}")
 
-                result = generator.generate_video(
-                    soul_id=persona,
-                    cue=cue,
-                    user_id=user_id
-                )
+                try:
+                    result = generator.generate_video(
+                        soul_id=persona,
+                        cue=cue,
+                        user_id=user_id
+                    )
+                    logger.info(f"[Generate Video] API result: {result}")
+                except Exception as e:
+                    logger.error(f"[Generate Video] API call failed: {e}")
+                    result = None
 
                 if result:
-                    # API 返回的字段是 'mp4_url'，需要转换为完整 URL
-                    mp4_url = result.get("mp4_url")
-                    if mp4_url:
-                        # 如果是相对路径，尝试从本地文件读取
-                        if mp4_url.startswith("/"):
-                            # 尝试从 imageGen 的 generated_videos 目录读取
-                            filename = mp4_url.split("/")[-1]
-                            local_path = f"/home/hongxda/telegrambot/imageGen/generated_videos/{filename}"
-                            try:
-                                import os
-                                if os.path.exists(local_path):
-                                    # 使用本地文件路径
-                                    full_mp4_url = local_path
-                                else:
-                                    # 如果本地文件不存在，使用 localhost URL
-                                    full_mp4_url = f"http://34.148.94.241:8000{mp4_url}"
-                            except:
-                                full_mp4_url = f"http://34.148.94.241:8000{mp4_url}"
-                        else:
-                            full_mp4_url = mp4_url
+                    # API 返回的字段是 'gif_url'（已经是完整的公网 URL）
+                    gif_url = result.get("gif_url", "")
+
+                    if gif_url:
+                        # 提取文件名用于显示
+                        gif_filename = gif_url.split("/")[-1] if "/" in gif_url else gif_url
 
                         st.session_state.messages.append({
                             "role": "assistant",
-                            "content": f"🎬 Video Generated!\n\n[Watch Video]({full_mp4_url})",
+                            "content": f"🎬 Video Generated!\n\n[{gif_filename}]({gif_url})",
                             "time": datetime.now().strftime("%Y-%m-%d")
                         })
+
                         with col_chat:
-                            if full_mp4_url.startswith("http"):
-                                st.video(full_mp4_url)
-                            else:
-                                st.markdown(f"[📥 Download Video]({full_mp4_url})")
+                            # 只显示 GIF 动画
+                            st.image(gif_url, caption=gif_filename, use_container_width=True)
+
+                            # 显示下载链接，只显示文件名
+                            st.markdown(f"[📥 {gif_filename}]({gif_url})")
                     else:
-                        st.error("Failed to generate video: No URL in response.")
+                        st.error("Failed to generate video: No GIF URL in response.")
                 else:
                     st.error("Failed to generate video.")
 
