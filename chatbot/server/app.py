@@ -12,7 +12,7 @@ from prompt_builder import get_prompt_builder
 from image_video_generator import get_image_video_generator
 
 # 公网地址配置（用于生成的媒体文件访问）
-PUBLIC_IMAGEGEN_URL = os.getenv("PUBLIC_IMAGEGEN_URL", "http://36.138.179.204:8000")
+PUBLIC_IMAGEGEN_URL = os.getenv("PUBLIC_IMAGEGEN_URL", "http://34.148.94.241:8000")
 
 # set title
 st.title("Chatbot with long term memory")
