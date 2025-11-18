@@ -1,0 +1,26 @@
+[server]
+# 增加服务器超时时间，支持长时间视频生成
+# 默认值太小，视频生成需要6-8分钟
+maxUploadSize = 200
+enableCORS = false
+enableXsrfProtection = true
+
+# WebSocket 配置 - 增加超时时间
+enableWebsocketCompression = true
+
+# 会话超时设置（秒）- 设置为30分钟
+# 这样即使视频生成需要8分钟也不会超时
+serverAddress = "0.0.0.0"
+headless = true
+
+[browser]
+# 浏览器连接超时（毫秒）- 30分钟
+serverAddress = "localhost"
+gatherUsageStats = false
+
+[runner]
+# 脚本运行超时（秒）- 30分钟
+# 这是关键设置，确保长时间运行的请求不会被中断
+magicEnabled = true
+fastReruns = true
+
