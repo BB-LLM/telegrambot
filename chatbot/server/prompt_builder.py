@@ -7,64 +7,12 @@ from loguru import logger
 
 
 class PromptBuilder:
-    """Prompt 构建器 - 从聊天上下文提取关键词并构建 cue"""
-    
-    # 停用词列表
-    STOPWORDS = {
-        "的", "了", "和", "是", "在", "我", "你", "他", "她", "它",
-        "这", "那", "一", "个", "不", "有", "没", "很", "也", "都",
-        "要", "会", "可以", "能", "想", "给", "把", "被", "让", "叫",
-        "the", "a", "an", "and", "or", "but", "in", "on", "at", "to",
-        "for", "of", "with", "by", "is", "are", "was", "were", "be",
-        "been", "being", "have", "has", "had", "do", "does", "did",
-        "will", "would", "could", "should", "may", "might", "must"
-    }
-    
+    """Prompt 构建器 - 从聊天上下文构建 cue"""
+
     def __init__(self):
         """初始化 Prompt 构建器"""
         pass
-    
-    def extract_keywords_from_context(
-        self,
-        chat_history: List[Dict],
-        num_messages: int = 5,
-        max_keywords: int = 10
-    ) -> List[str]:
-        """
-        从聊天历史中提取关键词
-        
-        Args:
-            chat_history: 聊天历史列表
-            num_messages: 提取最近 N 条消息
-            max_keywords: 最多提取的关键词数量
-        
-        Returns:
-            关键词列表
-        """
-        if not chat_history:
-            return []
-        
-        # 取最近 N 条消息
-        recent_msgs = chat_history[-num_messages:]
-        
-        # 提取用户消息
-        user_messages = [
-            msg.get("content", "")
-            for msg in recent_msgs
-            if msg.get("role") == "user"
-        ]
-        
-        if not user_messages:
-            return []
-        
-        # 合并所有用户消息
-        combined_text = " ".join(user_messages)
-        
-        # 分词和清理
-        keywords = self._extract_keywords(combined_text, max_keywords)
-        
-        return keywords
-    
+
     def build_standard_cue(
         self,
         user_input: str,
@@ -85,29 +33,34 @@ class PromptBuilder:
         Returns:
             构建好的 cue 字符串
         """
-        # 构建 cue
+        # 构建 cue - 直接使用用户输入和历史上下文，不做关键词提取
         cue_parts = []
 
-        # 添加用户当前输入的关键词（最重要）
-        user_input_keywords = self._extract_keywords(user_input, max_keywords=8)
-        if user_input_keywords:
-            cue_parts.extend(user_input_keywords)
+        # 1. 添加用户当前输入（最重要）
+        if user_input and user_input.strip():
+            cue_parts.append(user_input.strip())
 
-        # 添加聊天历史中的关键词（作为补充上下文）
-        history_keywords = self.extract_keywords_from_context(chat_history, num_messages=5, max_keywords=5)
-        if history_keywords:
-            # 避免重复
-            for kw in history_keywords:
-                if kw not in cue_parts:
-                    cue_parts.append(kw)
+        # 2. 添加最近3轮对话的用户消息作为上下文
+        if chat_history:
+            # 获取所有用户消息
+            user_messages = [
+                msg.get("content", "").strip()
+                for msg in chat_history
+                if msg.get("role") == "user" and msg.get("content", "").strip()
+            ]
 
-        # 添加质量提示词
-        cue_parts.append("high quality")
-        cue_parts.append("detailed")
+            # 取最近3条历史消息（不包括当前输入）
+            # 假设 chat_history 不包含当前输入，所以直接取最后3条
+            if user_messages:
+                recent_context = user_messages[-3:]  # 最近3条
+                for context in recent_context:
+                    if context and context not in cue_parts:
+                        cue_parts.append(context)
 
-        cue = ", ".join(cue_parts)
+        # 3. 拼接成完整的 cue
+        cue = ". ".join(cue_parts)
 
-        logger.info(f"Built standard cue (without Soul keywords): {cue}")
+        logger.info(f"Built standard cue: {cue}")
         return cue
     
     def build_selfie_cue(
@@ -197,41 +150,7 @@ class PromptBuilder:
         
         return None
     
-    def _extract_keywords(self, text: str, max_keywords: int = 10) -> List[str]:
-        """
-        从文本中提取关键词
-        
-        Args:
-            text: 输入文本
-            max_keywords: 最多提取的关键词数量
-        
-        Returns:
-            关键词列表
-        """
-        # 转换为小写
-        text = text.lower()
-        
-        # 移除标点符号
-        text = re.sub(r'[^\w\s]', ' ', text)
-        
-        # 分词
-        words = text.split()
-        
-        # 过滤停用词和短词
-        keywords = [
-            word for word in words
-            if word not in self.STOPWORDS and len(word) > 1
-        ]
-        
-        # 去重并保持顺序
-        seen = set()
-        unique_keywords = []
-        for word in keywords:
-            if word not in seen:
-                seen.add(word)
-                unique_keywords.append(word)
-        
-        return unique_keywords[:max_keywords]
+
 
 
 # 全局 Prompt 构建器实例
