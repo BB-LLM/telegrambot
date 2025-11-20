@@ -1,0 +1,39 @@
+[client]
+# 显示错误详情
+showErrorDetails = true
+
+[server]
+# 增加断开连接的会话 TTL（默认 120 秒，改为 30 分钟）
+disconnectedSessionTTL = 1800
+
+# 增加最大消息大小（默认 200MB）
+maxMessageSize = 500
+
+# 启用 WebSocket 压缩
+enableWebsocketCompression = true
+
+# 禁用 XSRF 保护（如果有跨域问题）
+enableXsrfProtection = false
+
+# 禁用 CORS 保护（允许跨域请求）
+enableCORS = false
+
+# 增加文件上传大小限制（默认 200MB，改为 500MB）
+maxUploadSize = 500
+
+# 增加脚本运行超时时间（默认无限制，但设置为 30 分钟以防万一）
+# 注意：这个设置可能不存在于所有版本的 Streamlit
+# scriptRunTimeout = 1800
+
+[logger]
+# 日志级别
+level = "info"
+
+[theme]
+# 主题配置
+primaryColor = "#FF6B6B"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F0F2F6"
+textColor = "#262730"
+font = "sans serif"
+

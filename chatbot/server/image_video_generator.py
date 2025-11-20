@@ -26,80 +26,110 @@ class ImageVideoGenerator:
         self,
         soul_id: str,
         cue: str,
-        user_id: str
+        user_id: str,
+        max_retries: int = 2
     ) -> Optional[Dict]:
         """
-        生成图像
-        
+        生成图像（带重试机制）
+
         Args:
             soul_id: Soul ID
             cue: 提示词
             user_id: 用户 ID
-        
+            max_retries: 最大重试次数（默认2次）
+
         Returns:
             API 响应字典，包含 image_url 等信息
         """
-        try:
-            url = f"{self.imagegen_api_url}/image"
-            params = {
-                "soul_id": soul_id,
-                "cue": cue,
-                "user_id": user_id
-            }
-            
-            logger.info(f"Calling imageGen API: {url} with params: {params}")
-            response = requests.get(url, params=params, timeout=60)
-            
-            if response.status_code == 200:
-                result = response.json()
-                logger.info(f"Image generation successful: {result}")
-                return result
-            else:
-                logger.error(f"Image generation failed: {response.status_code} - {response.text}")
+        url = f"{self.imagegen_api_url}/image"
+        params = {
+            "soul_id": soul_id,
+            "cue": cue,
+            "user_id": user_id
+        }
+
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"Calling imageGen API (attempt {attempt + 1}/{max_retries}): {url} with params: {params}")
+                response = requests.get(url, params=params, timeout=120)
+
+                if response.status_code == 200:
+                    result = response.json()
+                    logger.info(f"Image generation successful: {result}")
+                    return result
+                else:
+                    error_msg = response.text
+                    logger.error(f"Image generation failed (attempt {attempt + 1}/{max_retries}): {response.status_code} - {error_msg}")
+
+                    # 如果是数据库事务错误（500），且不是最后一次尝试，则重试
+                    if response.status_code == 500 and "transaction" in error_msg.lower() and attempt < max_retries - 1:
+                        logger.info(f"Database transaction error detected, retrying...")
+                        continue
+
+                    return None
+            except Exception as e:
+                logger.error(f"Error generating image (attempt {attempt + 1}/{max_retries}): {e}")
+                if attempt < max_retries - 1:
+                    logger.info(f"Retrying...")
+                    continue
                 return None
-        except Exception as e:
-            logger.error(f"Error generating image: {e}")
-            return None
+
+        return None
     
     def generate_video(
         self,
         soul_id: str,
         cue: str,
-        user_id: str
+        user_id: str,
+        max_retries: int = 2
     ) -> Optional[Dict]:
         """
-        生成视频
+        生成视频（带重试机制）
 
         Args:
             soul_id: Soul ID
             cue: 提示词
             user_id: 用户 ID
+            max_retries: 最大重试次数（默认2次）
 
         Returns:
             API 响应字典，包含 mp4_url 等信息
         """
-        try:
-            url = f"{self.imagegen_api_url}/wan-video/"
-            params = {
-                "soul_id": soul_id,
-                "cue": cue,
-                "user_id": user_id
-            }
+        url = f"{self.imagegen_api_url}/wan-video/"
+        params = {
+            "soul_id": soul_id,
+            "cue": cue,
+            "user_id": user_id
+        }
 
-            logger.info(f"Calling imageGen API: {url} with params: {params}")
-            # 增加超时时间
-            response = requests.get(url, params=params, timeout=1500)
-            
-            if response.status_code == 200:
-                result = response.json()
-                logger.info(f"Video generation successful: {result}")
-                return result
-            else:
-                logger.error(f"Video generation failed: {response.status_code} - {response.text}")
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"Calling imageGen API (attempt {attempt + 1}/{max_retries}): {url} with params: {params}")
+                # 增加超时时间
+                response = requests.get(url, params=params, timeout=1500)
+
+                if response.status_code == 200:
+                    result = response.json()
+                    logger.info(f"Video generation successful: {result}")
+                    return result
+                else:
+                    error_msg = response.text
+                    logger.error(f"Video generation failed (attempt {attempt + 1}/{max_retries}): {response.status_code} - {error_msg}")
+
+                    # 如果是数据库事务错误（500），且不是最后一次尝试，则重试
+                    if response.status_code == 500 and "transaction" in error_msg.lower() and attempt < max_retries - 1:
+                        logger.info(f"Database transaction error detected, retrying...")
+                        continue
+
+                    return None
+            except Exception as e:
+                logger.error(f"Error generating video (attempt {attempt + 1}/{max_retries}): {e}")
+                if attempt < max_retries - 1:
+                    logger.info(f"Retrying...")
+                    continue
                 return None
-        except Exception as e:
-            logger.error(f"Error generating video: {e}")
-            return None
+
+        return None
     
     def generate_selfie_image(
         self,

@@ -17,7 +17,7 @@ NC='\033[0m' # No Color
 
 # 配置
 PROJECT_DIR="/home/zouwuhe/telegrambot/chatbot"
-LOG_DIR="/home/zouwuhe/telegrambot/logs"
+LOG_DIR="${PROJECT_DIR}/logs"
 LOG_FILE_BACKEND="${LOG_DIR}/chatbot_backend_$(date +%Y%m%d_%H%M%S).log"
 LOG_FILE_FRONTEND="${LOG_DIR}/chatbot_frontend_$(date +%Y%m%d_%H%M%S).log"
 VENV_DIR="/home/zouwuhe/telegrambot/bot"
@@ -80,33 +80,18 @@ echo "" >> "$LOG_FILE_FRONTEND"
 
 echo -e "${YELLOW}🔧 虚拟环境已就绪${NC}"
 
+# 激活虚拟环境
+source "$VENV_DIR/bin/activate"
+
+# 进入项目目录
+cd "$PROJECT_DIR"
+
 # 设置环境变量
 export PYTHONPATH="."
 
-# 创建临时启动脚本 - 后端
-TEMP_BACKEND="/tmp/start_chatbot_backend_$$.sh"
-cat > "$TEMP_BACKEND" << 'SCRIPT_EOF'
-#!/bin/bash
-source "$1/bin/activate"
-cd "$2"
-export PYTHONPATH="."
-python server/chat_server.py --port "$3"
-SCRIPT_EOF
-chmod +x "$TEMP_BACKEND"
-
-# 创建临时启动脚本 - 前端
-TEMP_FRONTEND="/tmp/start_chatbot_frontend_$$.sh"
-cat > "$TEMP_FRONTEND" << 'SCRIPT_EOF'
-#!/bin/bash
-source "$1/bin/activate"
-cd "$2"
-streamlit run server/app.py --server.fileWatcherType none --server.port "$3"
-SCRIPT_EOF
-chmod +x "$TEMP_FRONTEND"
-
-# 启动后端服务
+# 启动后端服务（使用 setsid + nohup 确保完全从终端分离）
 echo -e "${YELLOW}🚀 启动 chatbot 后端服务 (port $BACKEND_PORT)...${NC}"
-bash "$TEMP_BACKEND" "$VENV_DIR" "$PROJECT_DIR" "$BACKEND_PORT" >> "$LOG_FILE_BACKEND" 2>&1 &
+setsid nohup python server/chat_server.py --port "$BACKEND_PORT" >> "$LOG_FILE_BACKEND" 2>&1 &
 BACKEND_PID=$!
 
 # 等待后端启动（Qdrant 初始化需要更多时间）
@@ -119,19 +104,15 @@ if ! kill -0 $BACKEND_PID 2>/dev/null; then
     echo -e "${RED}请查看日志: $LOG_FILE_BACKEND${NC}"
     echo -e "${RED}最后 20 行日志:${NC}"
     tail -20 "$LOG_FILE_BACKEND"
-    rm -f "$TEMP_BACKEND" "$TEMP_FRONTEND"
     exit 1
 fi
 
 echo -e "${GREEN}✅ 后端服务已启动 (PID: $BACKEND_PID)${NC}"
 
-# 启动前端服务
+# 启动前端服务（使用 setsid + nohup 确保完全从终端分离）
 echo -e "${YELLOW}🚀 启动 chatbot 前端服务 (port $FRONTEND_PORT)...${NC}"
-bash "$TEMP_FRONTEND" "$VENV_DIR" "$PROJECT_DIR" "$FRONTEND_PORT" >> "$LOG_FILE_FRONTEND" 2>&1 &
+setsid nohup streamlit run server/app.py --server.fileWatcherType none --server.port "$FRONTEND_PORT" >> "$LOG_FILE_FRONTEND" 2>&1 &
 FRONTEND_PID=$!
-
-# 清理临时脚本（后台）
-(sleep 5 && rm -f "$TEMP_BACKEND" "$TEMP_FRONTEND") &
 
 # 等待前端启动
 echo -e "${YELLOW}⏳ 等待前端服务初始化...${NC}"

@@ -14,8 +14,9 @@ from image_video_generator import get_image_video_generator
 # 公网地址配置（用于生成的媒体文件访问）
 PUBLIC_IMAGEGEN_URL = os.getenv("PUBLIC_IMAGEGEN_URL", "http://36.138.179.204:8000")
 
-# set title
-st.title("Chatbot with long term memory")
+# ============================================
+# 会话状态初始化（必须在任何 Streamlit UI 调用之前）
+# ============================================
 
 # 添加评估模式状态
 if "assessment_mode" not in st.session_state:
@@ -26,6 +27,24 @@ if "pocket_assessment_status" not in st.session_state:
 
 if "personality_profile" not in st.session_state:
     st.session_state.personality_profile = None
+
+# 初始化聊天记录
+if "messages" not in st.session_state:
+    st.session_state["messages"] = []
+
+# 初始化记忆和关系
+if "memories" not in st.session_state:
+    st.session_state["memories"] = []
+
+if "relations" not in st.session_state:
+    st.session_state["relations"] = []
+
+# ============================================
+# 现在可以安全地使用 Streamlit UI 组件
+# ============================================
+
+# set title
+st.title("Chatbot with long term memory")
 
 
 def get_browser_fingerprint():
@@ -105,16 +124,13 @@ def get_memories(user_id):
             results = profile + facts + style + commitments
             return results, relations
         else:
-            st.error("Error: Unable to fetch memories from the backend.")
+            # 不要在这里调用 st.error，而是返回空列表并记录日志
+            logger.error(f"Unable to fetch memories from backend. Status: {response.status_code}")
             return [], []
     except requests.exceptions.RequestException as e:
-        st.error(f"Error: {e}")
+        # 不要在这里调用 st.error，而是返回空列表并记录日志
+        logger.error(f"Error fetching memories: {e}")
         return [], []
-
-
-# 初始化聊天记录和记忆
-if "messages" not in st.session_state:
-    st.session_state["messages"] = []
 
 # 初始化 mem_changed 标志，默认值为 False
 mem_changed = False
@@ -133,8 +149,18 @@ with st.sidebar:
     if user_input:
         user_id = user_input
         st.session_state.user_input = user_input
-    st.session_state["memories"], st.session_state["relations"] = get_memories(user_id)
-    print(f"memories: {st.session_state['memories']}")
+
+    # 安全地加载记忆
+    try:
+        memories, relations = get_memories(user_id)
+        st.session_state["memories"] = memories
+        st.session_state["relations"] = relations
+        logger.info(f"Loaded {len(memories)} memories for user {user_id}")
+    except Exception as e:
+        logger.error(f"Error loading memories: {e}")
+        st.error(f"⚠️ Failed to load memories: {str(e)}")
+        st.session_state["memories"] = []
+        st.session_state["relations"] = []
     
     # 评估模式选择
     st.write("**Assessment Mode**")
@@ -221,8 +247,8 @@ with st.sidebar:
         if soul_info:
             st.caption(soul_info)
 
-    # 为了向后兼容，保留 persona 变量（使用选中的 Soul ID）
-    persona = selected_soul_id
+    # 使用更清晰的变量名
+    soul_id = selected_soul_id
 
     # 记忆抽取频率
     frequency = st.number_input("Extract Memory Frequency", min_value=1, max_value=10, step=1, value=1)
@@ -239,7 +265,7 @@ with col_chat:
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
             # 检查是否包含图片链接
-            if "![Generated Image](" in msg["content"] or "![Selfie](" in msg["content"]:
+            if "![" in msg["content"] and "](" in msg["content"]:
                 # 提取图片 URL
                 import re
                 match = re.search(r'!\[.*?\]\((.*?)\)', msg["content"])
@@ -249,13 +275,16 @@ with col_chat:
                     text_part = msg["content"].split("![")[0].strip()
                     if text_part:
                         st.write(text_part)
-                    # 直接显示 URL 链接
-                    st.write(f"🖼️ [View Image]({image_url})")
-                    # 也尝试用 st.image 显示
+
+                    # 显示图片
                     try:
                         st.image(image_url, use_container_width=True)
                     except:
-                        pass
+                        st.write(f"🖼️ [View Image]({image_url})")
+
+                    # 添加下载链接（使用 Markdown 避免每次渲染都下载图片）
+                    if "image_url" in msg and "image_filename" in msg:
+                        st.markdown(f"[📥 Download {msg['image_filename']}]({msg['image_url']})")
                 else:
                     st.write(msg["content"])
             else:
@@ -477,10 +506,9 @@ if prompt:
                 "http://36.138.179.204:8082/chat",  # API 地址
                 json={
                     "user_id": user_id,
-                    "message": prompt,  # 修复：后端期望的是 message 而不是 messages
+                    "message": prompt,
                     "model": model,
-                    "persona": persona,
-                    "soul_id": persona,  # 使用选中的 Soul ID
+                    "soul_id": soul_id,  # 使用选中的 Soul ID
                     "frequency": frequency,
                     "summary_frequency": summary_frequency,
                     "scene": scene,
@@ -600,7 +628,7 @@ if generate_image_btn:
             with st.spinner(f"🖼️ Generating selfie image in {city_key} with {mood} mood..."):
                 generator = get_image_video_generator("http://localhost:8000")
                 result = generator.generate_selfie_image(
-                    soul_id=persona,
+                    soul_id=soul_id,
                     city_key=city_key,
                     mood=mood,
                     user_id=user_id
@@ -612,49 +640,43 @@ if generate_image_btn:
                     variant_id = result.get("variant_id")
 
                     if image_url:
-                        # 如果是相对路径，尝试从 imageGen 数据库查询完整 URL
+                        # 如果是相对路径，转换为 imageGen 服务的完整 URL
                         if image_url.startswith("/"):
-                            try:
-                                # 尝试从 imageGen 数据库查询完整的 asset_url
-                                import sqlite3
-                                db_path = "/home/zouwuhe/telegrambot/imageGen/app/data/imagegen.db"
-                                conn = sqlite3.connect(db_path)
-                                conn.row_factory = sqlite3.Row
-                                cursor = conn.cursor()
-                                cursor.execute("SELECT asset_url FROM variant WHERE variant_id = ?", (variant_id,))
-                                row = cursor.fetchone()
-                                conn.close()
-
-                                if row and row["asset_url"]:
-                                    full_image_url = row["asset_url"]
-                                else:
-                                    # 如果数据库查询失败，使用本地文件路径
-                                    filename = image_url.split("/")[-1]
-                                    full_image_url = f"/home/zouwuhe/telegrambot/imageGen/generated_images/{filename}"
-                            except:
-                                # 如果查询失败，使用本地文件路径
-                                filename = image_url.split("/")[-1]
-                                full_image_url = f"/home/zouwuhe/telegrambot/imageGen/generated_images/{filename}"
+                            # 使用 imageGen 的静态文件服务
+                            full_image_url = f"http://localhost:8000{image_url}"
                         else:
                             full_image_url = image_url
+
+                        # 提取文件名
+                        image_filename = full_image_url.split("/")[-1] if "/" in full_image_url else "selfie.png"
 
                         st.session_state.messages.append({
                             "role": "assistant",
                             "content": f"🖼️ Selfie Image Generated!\n\n![Selfie]({full_image_url})",
-                            "time": datetime.now().strftime("%Y-%m-%d")
+                            "time": datetime.now().strftime("%Y-%m-%d"),
+                            "image_url": full_image_url,
+                            "image_filename": image_filename
                         })
                         with col_chat:
                             st.image(full_image_url, caption="Generated Selfie", use_container_width=True)
+                            # 添加下载链接
+                            st.markdown(f"[📥 Download {image_filename}]({full_image_url})")
                     else:
                         st.error("Failed to generate selfie image: No URL in response.")
                 else:
                     st.error("Failed to generate selfie image.")
         else:
             # 标准模式 - 从聊天上下文生成
-            with st.spinner("🖼️ Generating image from chat context..."):
+            # 创建一个占位符用于显示进度
+            progress_placeholder = st.empty()
+
+            with progress_placeholder.container():
+                st.info("🖼️ Generating image from chat context... This may take 30-60 seconds, please wait...")
+
+            try:
                 generator = get_image_video_generator("http://localhost:8000")
                 soul_manager = get_soul_manager("http://localhost:8000")
-                soul_info = soul_manager.get_all_souls().get(persona, {})
+                soul_info = soul_manager.get_all_souls().get(soul_id, {})
                 soul_keywords = soul_info.get("style_keywords", [])
                 logger.info(f"[Generate Image] Soul keywords: {soul_keywords}")
 
@@ -666,16 +688,16 @@ if generate_image_btn:
                 )
                 logger.info(f"[Generate Image] Built cue: {cue}")
 
-                try:
-                    result = generator.generate_image(
-                        soul_id=persona,
-                        cue=cue,
-                        user_id=user_id
-                    )
-                    logger.info(f"[Generate Image] API result: {result}")
-                except Exception as e:
-                    logger.error(f"[Generate Image] API call failed: {e}")
-                    result = None
+                # 调用 API 生成图像
+                result = generator.generate_image(
+                    soul_id=soul_id,
+                    cue=cue,
+                    user_id=user_id
+                )
+                logger.info(f"[Generate Image] API result: {result}")
+
+                # 清除进度提示
+                progress_placeholder.empty()
 
                 if result:
                     # API 返回的字段是 'url'，需要映射到完整的可访问 URL
@@ -683,43 +705,51 @@ if generate_image_btn:
                     variant_id = result.get("variant_id")
 
                     if image_url:
-                        # 如果是相对路径，尝试从 imageGen 数据库查询完整 URL
-                        if image_url.startswith("/"):
-                            try:
-                                # 尝试从 imageGen 数据库查询完整的 asset_url
-                                import sqlite3
-                                db_path = "/home/zouwuhe/telegrambot/imageGen/app/data/imagegen.db"
-                                conn = sqlite3.connect(db_path)
-                                conn.row_factory = sqlite3.Row
-                                cursor = conn.cursor()
-                                cursor.execute("SELECT asset_url FROM variant WHERE variant_id = ?", (variant_id,))
-                                row = cursor.fetchone()
-                                conn.close()
+                        # 检查是否是视频 URL（错误返回）
+                        is_video = image_url.endswith(('.mp4', '.avi', '.mov', '.gif'))
 
-                                if row and row["asset_url"]:
-                                    full_image_url = row["asset_url"]
-                                else:
-                                    # 如果数据库查询失败，使用本地文件路径
-                                    filename = image_url.split("/")[-1]
-                                    full_image_url = f"/home/zouwuhe/telegrambot/imageGen/generated_images/{filename}"
-                            except:
-                                # 如果查询失败，使用本地文件路径
-                                filename = image_url.split("/")[-1]
-                                full_image_url = f"/home/zouwuhe/telegrambot/imageGen/generated_images/{filename}"
+                        if is_video:
+                            # 如果返回的是视频，显示错误提示
+                            st.error("⚠️ Image generation returned a video instead of an image. This is a cache issue. Please try again with a different prompt.")
+                            logger.error(f"[Generate Image] Received video URL instead of image: {image_url}")
                         else:
-                            full_image_url = image_url
+                            # 如果是相对路径，转换为 imageGen 服务的完整 URL
+                            if image_url.startswith("/"):
+                                # 使用 imageGen 的静态文件服务（公网地址）
+                                full_image_url = f"http://36.138.179.204:8000{image_url}"
+                            else:
+                                full_image_url = image_url
 
-                        st.session_state.messages.append({
-                            "role": "assistant",
-                            "content": f"🖼️ Image Generated!\n\n![Generated Image]({full_image_url})",
-                            "time": datetime.now().strftime("%Y-%m-%d")
-                        })
-                        with col_chat:
-                            st.image(full_image_url, caption="Generated Image", use_container_width=True)
+                            # 提取文件名用于显示
+                            image_filename = full_image_url.split("/")[-1] if "/" in full_image_url else "Generated Image"
+
+                            st.session_state.messages.append({
+                                "role": "assistant",
+                                "content": f"🖼️ Image Generated!\n\n![{image_filename}]({full_image_url})",
+                                "time": datetime.now().strftime("%Y-%m-%d"),
+                                "image_url": full_image_url,  # 保存图片 URL 用于下载
+                                "image_filename": image_filename
+                            })
+
+                            with col_chat:
+                                # 显示图片
+                                st.image(full_image_url, caption=image_filename, use_container_width=True)
+                                # 添加下载链接
+                                st.markdown(f"[📥 Download {image_filename}]({full_image_url})")
+
+                            # 强制刷新页面以显示新消息
+                            st.rerun()
                     else:
                         st.error("Failed to generate image: No URL in response.")
+                        logger.error(f"[Generate Image] No URL in result: {result}")
                 else:
-                    st.error("Failed to generate image.")
+                    st.error("Failed to generate image: API returned None.")
+                    logger.error("[Generate Image] API returned None")
+
+            except Exception as e:
+                progress_placeholder.empty()
+                st.error(f"Failed to generate image: {str(e)}")
+                logger.error(f"[Generate Image] Exception: {e}", exc_info=True)
 
 # 处理生成视频按钮
 if generate_video_btn:
@@ -740,7 +770,7 @@ if generate_video_btn:
             with st.spinner(f"🎬 Generating selfie video in {city_key} with {mood} mood..."):
                 generator = get_image_video_generator("http://localhost:8000")
                 result = generator.generate_selfie_video(
-                    soul_id=persona,
+                    soul_id=soul_id,
                     city_key=city_key,
                     mood=mood,
                     user_id=user_id
@@ -756,26 +786,33 @@ if generate_video_btn:
 
                         st.session_state.messages.append({
                             "role": "assistant",
-                            "content": f"🎬 Selfie Video Generated!\n\n[{gif_filename}]({gif_url})",
-                            "time": datetime.now().strftime("%Y-%m-%d")
+                            "content": f"🎬 Selfie Video Generated!\n\n![{gif_filename}]({gif_url})",
+                            "time": datetime.now().strftime("%Y-%m-%d"),
+                            "image_url": gif_url,
+                            "image_filename": gif_filename
                         })
 
                         with col_chat:
                             # 只显示 GIF 动画
                             st.image(gif_url, caption=gif_filename, use_container_width=True)
-
-                            # 显示下载链接，只显示文件名
-                            st.markdown(f"[📥 {gif_filename}]({gif_url})")
+                            # 添加下载链接
+                            st.markdown(f"[📥 Download {gif_filename}]({gif_url})")
                     else:
                         st.error("Failed to generate selfie video: No GIF URL in response.")
                 else:
                     st.error("Failed to generate selfie video.")
         else:
             # 标准模式 - 从聊天上下文生成
-            with st.spinner("🎬 Generating video from chat context..."):
+            # 创建一个占位符用于显示进度
+            progress_placeholder = st.empty()
+
+            with progress_placeholder.container():
+                st.info("🎬 Generating video from chat context... This may take minutes, please wait...")
+
+            try:
                 generator = get_image_video_generator("http://localhost:8000")
                 soul_manager = get_soul_manager("http://localhost:8000")
-                soul_info = soul_manager.get_all_souls().get(persona, {})
+                soul_info = soul_manager.get_all_souls().get(soul_id, {})
                 soul_keywords = soul_info.get("style_keywords", [])
                 logger.info(f"[Generate Video] Soul keywords: {soul_keywords}")
 
@@ -787,16 +824,16 @@ if generate_video_btn:
                 )
                 logger.info(f"[Generate Video] Built cue: {cue}")
 
-                try:
-                    result = generator.generate_video(
-                        soul_id=persona,
-                        cue=cue,
-                        user_id=user_id
-                    )
-                    logger.info(f"[Generate Video] API result: {result}")
-                except Exception as e:
-                    logger.error(f"[Generate Video] API call failed: {e}")
-                    result = None
+                # 调用 API 生成视频
+                result = generator.generate_video(
+                    soul_id=soul_id,
+                    cue=cue,
+                    user_id=user_id
+                )
+                logger.info(f"[Generate Video] API result: {result}")
+
+                # 清除进度提示
+                progress_placeholder.empty()
 
                 if result:
                     # API 返回的字段是 'gif_url'（已经是完整的公网 URL）
@@ -806,22 +843,28 @@ if generate_video_btn:
                         # 提取文件名用于显示
                         gif_filename = gif_url.split("/")[-1] if "/" in gif_url else gif_url
 
+                        # 添加到消息历史，包含 GIF 图片（使用 Markdown 图片语法）
                         st.session_state.messages.append({
                             "role": "assistant",
-                            "content": f"🎬 Video Generated!\n\n[{gif_filename}]({gif_url})",
-                            "time": datetime.now().strftime("%Y-%m-%d")
+                            "content": f"🎬 Video Generated!\n\n![{gif_filename}]({gif_url})",
+                            "time": datetime.now().strftime("%Y-%m-%d"),
+                            "image_url": gif_url,
+                            "image_filename": gif_filename
                         })
 
-                        with col_chat:
-                            # 只显示 GIF 动画
-                            st.image(gif_url, caption=gif_filename, use_container_width=True)
-
-                            # 显示下载链接，只显示文件名
-                            st.markdown(f"[📥 {gif_filename}]({gif_url})")
+                        # 强制刷新页面以显示新消息
+                        st.rerun()
                     else:
                         st.error("Failed to generate video: No GIF URL in response.")
+                        logger.error(f"[Generate Video] No GIF URL in result: {result}")
                 else:
-                    st.error("Failed to generate video.")
+                    st.error("Failed to generate video: API returned None.")
+                    logger.error("[Generate Video] API returned None")
+
+            except Exception as e:
+                progress_placeholder.empty()
+                st.error(f"Failed to generate video: {str(e)}")
+                logger.error(f"[Generate Video] Exception: {e}", exc_info=True)
 
 # 创建一个简单的知识图谱
 net = Network(width="100%", height="500px", notebook=False)
