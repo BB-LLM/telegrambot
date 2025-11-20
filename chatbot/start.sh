@@ -16,11 +16,11 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # 配置
-PROJECT_DIR="/home/zouwuhe/telegrambot/chatbot"
-LOG_DIR="${PROJECT_DIR}/logs"
+PROJECT_DIR="/home/hongxda/telegrambot/chatbot"
+LOG_DIR="/home/hongxda/telegrambot/chatbot/logs"
 LOG_FILE_BACKEND="${LOG_DIR}/chatbot_backend_$(date +%Y%m%d_%H%M%S).log"
 LOG_FILE_FRONTEND="${LOG_DIR}/chatbot_frontend_$(date +%Y%m%d_%H%M%S).log"
-VENV_DIR="/home/zouwuhe/telegrambot/bot"
+VENV_DIR="/home/hongxda/telegrambot/chatbot/venv"
 BACKEND_PORT=8082
 FRONTEND_PORT=8081
 
@@ -137,10 +137,10 @@ echo -e "${BLUE}========================================${NC}"
 echo -e "${GREEN}后端进程号 (PID): $BACKEND_PID${NC}"
 echo -e "${GREEN}前端进程号 (PID): $FRONTEND_PID${NC}"
 echo ""
-echo -e "${GREEN}后端地址: http://36.138.179.204:$BACKEND_PORT${NC}"
-echo -e "${GREEN}后端文档: http://36.138.179.204:$BACKEND_PORT/docs${NC}"
+echo -e "${GREEN}后端地址: http://34.148.51.133:$BACKEND_PORT${NC}"
+echo -e "${GREEN}后端文档: http://34.148.51.133:$BACKEND_PORT/docs${NC}"
 echo ""
-echo -e "${GREEN}前端地址: http://36.138.179.204:$FRONTEND_PORT${NC}"
+echo -e "${GREEN}前端地址: http://34.148.51.133:$FRONTEND_PORT${NC}"
 echo ""
 echo -e "${GREEN}后端日志: $LOG_FILE_BACKEND${NC}"
 echo -e "${GREEN}前端日志: $LOG_FILE_FRONTEND${NC}"

@@ -9,7 +9,7 @@ from loguru import logger
 class SoulManager:
     """Soul 管理器 - 获取和缓存 Soul 信息"""
     
-    def __init__(self, imagegen_api_url: str = "http://localhost:8000"):
+    def __init__(self, imagegen_api_url: str = "http://34.148.94.241:8000"):
         """
         初始化 Soul 管理器
         
@@ -179,7 +179,7 @@ class SoulManager:
 _soul_manager = None
 
 
-def get_soul_manager(imagegen_api_url: str = "http://localhost:8000") -> SoulManager:
+def get_soul_manager(imagegen_api_url: str = "http://34.148.94.241:8000") -> SoulManager:
     """
     获取全局 Soul 管理器实例
     

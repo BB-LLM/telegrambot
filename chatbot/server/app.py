@@ -12,7 +12,7 @@ from prompt_builder import get_prompt_builder
 from image_video_generator import get_image_video_generator
 
 # 公网地址配置（用于生成的媒体文件访问）
-PUBLIC_IMAGEGEN_URL = os.getenv("PUBLIC_IMAGEGEN_URL", "http://36.138.179.204:8000")
+PUBLIC_IMAGEGEN_URL = os.getenv("PUBLIC_IMAGEGEN_URL", "http://34.148.94.241:8000")
 
 # ============================================
 # 会话状态初始化（必须在任何 Streamlit UI 调用之前）
@@ -110,7 +110,7 @@ else:
 def get_memories(user_id):
     try:
         # 修复：使用路径参数而不是查询参数
-        response = requests.get(f"http://36.138.179.204:8082/memories/{user_id}")  # 获取所有记忆的 API
+        response = requests.get(f"http://34.148.51.133:8082/memories/{user_id}")  # 获取所有记忆的 API
         if response.status_code == 200:
             json_data = response.json()
             # 后端返回的格式已经分类好了
@@ -138,6 +138,10 @@ mem_changed = False
 # 初始化user_id
 if 'user_input' not in st.session_state:
     st.session_state.user_input = user_id  # 初始默认值
+
+# 初始化视频/图片生成标志
+if 'is_generating' not in st.session_state:
+    st.session_state.is_generating = False
 
 
 # 显示侧边栏的输入选项
@@ -227,7 +231,7 @@ with st.sidebar:
         scene = scene_options[scene_label]
 
     # 初始化 Soul 管理器
-    soul_manager = get_soul_manager("http://localhost:8000")
+    soul_manager = get_soul_manager("http://34.148.94.241:8000")
     all_souls = soul_manager.get_all_souls()
     soul_ids = list(all_souls.keys())
 
@@ -298,7 +302,7 @@ if st.session_state.assessment_mode == "pocket_themes":
         if st.button("🌟 Start Mystical Personality Assessment", type="primary"):
             try:
                 response = requests.post(
-                    f"http://36.138.179.204:8082/start_pocket_assessment",
+                    f"http://34.148.51.133:8082/start_pocket_assessment",
                     params={"user_id": user_id, "model": model}
                 )
                 if response.status_code == 200:
@@ -394,7 +398,7 @@ if st.session_state.assessment_mode == "pocket_themes":
                         try:
                             # 处理回答
                             response = requests.post(
-                                f"http://36.138.179.204:8082/pocket_assessment_response",
+                                f"http://34.148.51.133:8082/pocket_assessment_response",
                                 params={"user_id": user_id, "response": user_response, "model": model}
                             )
                             if response.status_code == 200:
@@ -405,7 +409,7 @@ if st.session_state.assessment_mode == "pocket_themes":
                                     st.session_state.personality_profile = result.get("personality_profile")
 
                                 # 获取完整评估状态
-                                status_response = requests.get(f"http://36.138.179.204:8082/pocket_assessment_status/{user_id}")
+                                status_response = requests.get(f"http://34.148.51.133:8082/pocket_assessment_status/{user_id}")
                                 if status_response.status_code == 200:
                                     st.session_state.pocket_assessment_status = status_response.json()
                                 
@@ -503,7 +507,7 @@ if prompt:
         # 发送请求，获取聊天回复
         try:
             response = requests.post(
-                "http://36.138.179.204:8082/chat",  # API 地址
+                "http://34.148.51.133:8082/chat",  # API 地址
                 json={
                     "user_id": user_id,
                     "message": prompt,
@@ -626,7 +630,7 @@ if generate_image_btn:
             # 自拍模式
             city_key, mood = selfie_params
             with st.spinner(f"🖼️ Generating selfie image in {city_key} with {mood} mood..."):
-                generator = get_image_video_generator("http://localhost:8000")
+                generator = get_image_video_generator("http://34.148.94.241:8000")
                 result = generator.generate_selfie_image(
                     soul_id=soul_id,
                     city_key=city_key,
@@ -640,10 +644,13 @@ if generate_image_btn:
                     variant_id = result.get("variant_id")
 
                     if image_url:
-                        # 如果是相对路径，转换为 imageGen 服务的完整 URL
+                        # 如果是相对路径，转换为 imageGen 服务器的公网 URL
                         if image_url.startswith("/"):
-                            # 使用 imageGen 的静态文件服务
-                            full_image_url = f"http://localhost:8000{image_url}"
+                            # 提取文件名
+                            filename = image_url.split("/")[-1]
+                            # 使用 imageGen 服务器的公网地址
+                            full_image_url = f"http://34.148.94.241:8000{image_url}"
+                            logger.info(f"[Generate Selfie Image] Converted relative path to public URL: {full_image_url}")
                         else:
                             full_image_url = image_url
 
@@ -671,11 +678,11 @@ if generate_image_btn:
             progress_placeholder = st.empty()
 
             with progress_placeholder.container():
-                st.info("🖼️ Generating image from chat context... This may take 30-60 seconds, please wait...")
+                st.info("🖼️ Generating image from chat context... This may take seconds, please wait...")
 
             try:
-                generator = get_image_video_generator("http://localhost:8000")
-                soul_manager = get_soul_manager("http://localhost:8000")
+                generator = get_image_video_generator("http://34.148.94.241:8000")
+                soul_manager = get_soul_manager("http://34.148.94.241:8000")
                 soul_info = soul_manager.get_all_souls().get(soul_id, {})
                 soul_keywords = soul_info.get("style_keywords", [])
                 logger.info(f"[Generate Image] Soul keywords: {soul_keywords}")
@@ -716,7 +723,7 @@ if generate_image_btn:
                             # 如果是相对路径，转换为 imageGen 服务的完整 URL
                             if image_url.startswith("/"):
                                 # 使用 imageGen 的静态文件服务（公网地址）
-                                full_image_url = f"http://36.138.179.204:8000{image_url}"
+                                full_image_url = f"http://34.148.94.241:8000{image_url}"
                             else:
                                 full_image_url = image_url
 
@@ -740,6 +747,8 @@ if generate_image_btn:
                             # 强制刷新页面以显示新消息
                             st.rerun()
                     else:
+                        # 清除生成标志
+                        st.session_state.is_generating = False
                         st.error("Failed to generate image: No URL in response.")
                         logger.error(f"[Generate Image] No URL in result: {result}")
                 else:
@@ -768,7 +777,7 @@ if generate_video_btn:
             # 自拍模式
             city_key, mood = selfie_params
             with st.spinner(f"🎬 Generating selfie video in {city_key} with {mood} mood..."):
-                generator = get_image_video_generator("http://localhost:8000")
+                generator = get_image_video_generator("http://34.148.94.241:8000")
                 result = generator.generate_selfie_video(
                     soul_id=soul_id,
                     city_key=city_key,
@@ -810,19 +819,20 @@ if generate_video_btn:
                 st.info("🎬 Generating video from chat context... This may take minutes, please wait...")
 
             try:
-                generator = get_image_video_generator("http://localhost:8000")
-                soul_manager = get_soul_manager("http://localhost:8000")
+                generator = get_image_video_generator("http://34.148.94.241:8000")
+                soul_manager = get_soul_manager("http://34.148.94.241:8000")
                 soul_info = soul_manager.get_all_souls().get(soul_id, {})
                 soul_keywords = soul_info.get("style_keywords", [])
                 logger.info(f"[Generate Video] Soul keywords: {soul_keywords}")
 
-                # 构建 cue
-                cue = generator.build_cue_from_context(
-                    last_user_msg,
-                    st.session_state.messages,
-                    soul_keywords
-                )
-                logger.info(f"[Generate Video] Built cue: {cue}")
+            try:
+                # 使用 spinner 显示进度，这样 Streamlit 知道我们在等待
+                with st.spinner("🎬 Generating video from chat context... This may take 2-3 minutes, please wait..."):
+                    generator = get_image_video_generator("http://34.148.94.241:8000")
+                    soul_manager = get_soul_manager("http://34.148.94.241:8000")
+                    soul_info = soul_manager.get_all_souls().get(soul_id, {})
+                    soul_keywords = soul_info.get("style_keywords", [])
+                    logger.info(f"[Generate Video] Soul keywords: {soul_keywords}")
 
                 # 调用 API 生成视频
                 result = generator.generate_video(
@@ -835,6 +845,7 @@ if generate_video_btn:
                 # 清除进度提示
                 progress_placeholder.empty()
 
+                # spinner 结束后处理结果
                 if result:
                     # API 返回的字段是 'gif_url'（已经是完整的公网 URL）
                     gif_url = result.get("gif_url", "")
@@ -855,6 +866,8 @@ if generate_video_btn:
                         # 强制刷新页面以显示新消息
                         st.rerun()
                     else:
+                        # 清除生成标志
+                        st.session_state.is_generating = False
                         st.error("Failed to generate video: No GIF URL in response.")
                         logger.error(f"[Generate Video] No GIF URL in result: {result}")
                 else:

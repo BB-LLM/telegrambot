@@ -3,7 +3,7 @@
 ################################################################################
 # diaryGen 一键启动脚本
 # 功能: 启动 diaryGen 服务，所有输出写入日志文件
-# 用法: ./start_diaryGen.sh
+# 用法: ./start.sh
 ################################################################################
 
 set -e
@@ -16,10 +16,10 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # 配置
-PROJECT_DIR="/home/zouwuhe/telegrambot/diaryGen"
+PROJECT_DIR="/home/hongxda/telegrambot/diaryGen"
 LOG_DIR="${PROJECT_DIR}/logs"
 LOG_FILE="${LOG_DIR}/diaryGen_$(date +%Y%m%d_%H%M%S).log"
-VENV_DIR="/home/zouwuhe/telegrambot/bot"
+VENV_DIR="/home/hongxda/telegrambot/diaryGen/venv"
 API_PORT=8083
 
 # 创建日志目录
