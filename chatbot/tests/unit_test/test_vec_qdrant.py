@@ -10,7 +10,7 @@ qdrant_cfg = {
     "client": None,
     "host": "", # http://7.34.73.70:6333/collections
     "port": 6333,
-    "path": "/Users/zouwuhe/Desktop/src/mem_minus/wks/qdrant",
+    "path": "/Users/hongxda/Desktop/src/mem_minus/wks/qdrant",
     "url": "https://d8a17329-41df-49fc-811f-c5e762a2b12e.europe-west3-0.gcp.cloud.qdrant.io:6333",
     "api_key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3MiOiJtIn0.zyODVTAKCSNpo0cBBh6yXMlf29A8nJAaz42KTTZP2hk",
     "on_disk": False

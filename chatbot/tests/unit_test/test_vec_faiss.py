@@ -6,7 +6,7 @@ import shortuuid
 
 faiss_cfg = {
     "collection_name": "memory_test",
-    "path": "/Users/zouwuhe/Desktop/src/mem_minus/wks/faiss",
+    "path": "/Users/hongxda/Desktop/src/mem_minus/wks/faiss",
     "distance_strategy": "euclidean",
     "normalize_L2": False,
     "embedding_model_dims": 2560

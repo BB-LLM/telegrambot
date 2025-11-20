@@ -13,8 +13,8 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-PROJECT_DIR="/home/zouwuhe/telegrambot/chatbot"
-LOG_DIR="/home/zouwuhe/telegrambot/chatbot/logs"
+PROJECT_DIR="/home/hongxda/telegrambot/chatbot"
+LOG_DIR="${PROJECT_DIR}/logs"
 
 echo -e "${BLUE}========================================${NC}"
 echo -e "${BLUE}  chatbot 完整清理${NC}"
