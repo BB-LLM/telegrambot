@@ -16,7 +16,7 @@ def get_user_diary(user_id: str) -> Optional[Dict]:
         日记数据字典，如果未找到返回None
     """
     try:
-        response = requests.get(f"http://36.138.179.204:8082/diary/{user_id}", timeout=10)
+        response = requests.get(f"http://34.148.51.133:8082/diary/{user_id}", timeout=10)
         if response.status_code == 200:
             return response.json()
         elif response.status_code == 404:
@@ -116,7 +116,7 @@ def render_diary_sidebar(user_id: str):
                 try:
                     # 调用手动生成接口
                     response = requests.post(
-                        f"http://36.138.179.204:8082/diary/generate/{user_id}",
+                        f"http://34.148.51.133:8082/diary/generate/{user_id}",
                         timeout=90  # 给足够的时间，因为LLM调用可能需要较长时间
                     )
                     

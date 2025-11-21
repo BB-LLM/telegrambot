@@ -3,7 +3,7 @@ import json
 import time
 
 # 基础URL
-base_url = "http://36.138.179.204:8000"
+base_url = "http://34.148.94.241:8000"
 
 # 测试用的用户ID
 test_user_id = "test_user_123"

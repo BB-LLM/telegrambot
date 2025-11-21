@@ -12,7 +12,7 @@ from prompt_builder import get_prompt_builder
 class ImageVideoGenerator:
     """图像和视频生成器 - 调用 imageGen API"""
     
-    def __init__(self, imagegen_api_url: str = "http://36.138.179.204:8000"):
+    def __init__(self, imagegen_api_url: str = "http://34.148.94.241:8000"):
         """
         初始化生成器
         
@@ -244,7 +244,7 @@ class ImageVideoGenerator:
 _generator = None
 
 
-def get_image_video_generator(imagegen_api_url: str = "http://36.138.179.204:8000") -> ImageVideoGenerator:
+def get_image_video_generator(imagegen_api_url: str = "http://34.148.94.241:8000") -> ImageVideoGenerator:
     """
     获取全局图像视频生成器实例
     
