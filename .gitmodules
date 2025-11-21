@@ -1,3 +1,0 @@
-[submodule "imageGen"]
-	path = imageGen
-	url = https://github.com/BB-LLM/imageGen.git
