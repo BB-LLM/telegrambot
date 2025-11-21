@@ -5,7 +5,7 @@ import requests
 import re
 from loguru import logger
 
-SERVER_BASE_URL = 'http://34.148.94.241:8000/'
+SERVER_BASE_URL = 'http://36.138.179.204:8000/'
 add_url = SERVER_BASE_URL + 'add'
 search_url = SERVER_BASE_URL + 'search'
 get_memories_url = SERVER_BASE_URL + 'memories'

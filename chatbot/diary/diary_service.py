@@ -9,7 +9,7 @@ from loguru import logger
 class DiaryService:
     """Diary service for generating and retrieving diaries"""
     
-    def __init__(self, diary_api_url: str = "http://34.148.51.133:8083"):
+    def __init__(self, diary_api_url: str = "http://36.138.179.204:8083"):
         """
         Initialize diary service
         
