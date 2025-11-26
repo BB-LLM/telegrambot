@@ -240,7 +240,7 @@ with st.sidebar:
         scene = scene_options[scene_label]
 
     # 初始化 Soul 管理器
-    soul_manager = get_soul_manager("http://34.148.94.241:8000")
+    soul_manager = get_soul_manager(PUBLIC_IMAGEGEN_URL)
     all_souls = soul_manager.get_all_souls()
     soul_ids = list(all_souls.keys())
 
@@ -262,6 +262,59 @@ with st.sidebar:
 
     # 使用更清晰的变量名
     soul_id = selected_soul_id
+
+    # ============================================
+    # 📸 Soul Selfie Generation Panel
+    # ============================================
+    st.markdown("---")
+    st.markdown("### 📸 Soul Selfie")
+    st.caption("Generate Soul's selfie photos/videos in different cities and moods")
+
+    # City selection
+    city_options = {
+        "🗼 Paris": "paris",
+        "🗾 Tokyo": "tokyo",
+        "🗽 New York": "newyork",
+        "🏰 London": "london",
+        "🏛️ Rome": "rome"
+    }
+    selected_city_label = st.selectbox(
+        "📍 Travel Location",
+        list(city_options.keys()),
+        key="selfie_city_selector"
+    )
+    selfie_city = city_options[selected_city_label]
+
+    # Mood selection
+    mood_options = {
+        "😊 Happy": "happy",
+        "😢 Sad": "sad",
+        "🤩 Excited": "excited",
+        "😌 Calm": "calm",
+        "💕 Romantic": "romantic",
+        "🏃 Adventurous": "adventurous"
+    }
+    selected_mood_label = st.selectbox(
+        "💭 Current Mood",
+        list(mood_options.keys()),
+        key="selfie_mood_selector"
+    )
+    selfie_mood = mood_options[selected_mood_label]
+
+    # Generate buttons
+    col_selfie_img, col_selfie_vid = st.columns(2)
+    with col_selfie_img:
+        generate_selfie_image_btn = st.button("🖼️ Generate Image", key="generate_selfie_image", use_container_width=True)
+    with col_selfie_vid:
+        generate_selfie_video_btn = st.button("🎬 Generate Video", key="generate_selfie_video", use_container_width=True)
+
+    # Extract city and mood names
+    city_name = selected_city_label.split()[1] if len(selected_city_label.split()) > 1 else selected_city_label.replace("🗼 ", "").replace("🗾 ", "").replace("🗽 ", "").replace("🏰 ", "").replace("🏛️ ", "")
+    mood_name = selected_mood_label.split()[1] if len(selected_mood_label.split()) > 1 else selected_mood_label.replace("😊 ", "").replace("😢 ", "").replace("🤩 ", "").replace("😌 ", "").replace("💕 ", "").replace("🏃 ", "")
+    st.caption(f"💡 Will generate **{soul_id}**'s **{mood_name}** selfie in **{city_name}**")
+
+    st.markdown("---")
+    # ============================================
 
     # 记忆抽取频率
     frequency = st.number_input("Extract Memory Frequency", min_value=1, max_value=10, step=1, value=1)
@@ -907,3 +960,98 @@ if "memories" in st.session_state and not mem_changed:
     st.sidebar.json(style)
     st.sidebar.write("Commitments：")
     st.sidebar.json(commitments)
+
+# ============================================
+# 处理 Soul 自拍图像生成按钮
+# ============================================
+if generate_selfie_image_btn:
+    logger.info(f"[Generate Selfie Image] Soul: {soul_id}, City: {selfie_city}, Mood: {selfie_mood}")
+
+    with st.spinner(f"🖼️ Generating {soul_id}'s {selfie_mood} selfie in {selfie_city}..."):
+        generator = get_image_video_generator("http://34.148.94.241:8000")
+        result = generator.generate_selfie_image(
+            soul_id=soul_id,
+            city_key=selfie_city,
+            mood=selfie_mood,
+            user_id=user_id
+        )
+
+        if result:
+            image_url = result.get("url") or result.get("image_url")
+            variant_id = result.get("variant_id")
+            landmark_key = result.get("landmark_key", "")
+
+            if image_url:
+                # Convert relative path to full URL
+                if image_url.startswith("/"):
+                    full_image_url = f"http://34.148.94.241:8000{image_url}"
+                    logger.info(f"[Generate Selfie Image] Converted to public URL: {full_image_url}")
+                else:
+                    full_image_url = image_url
+
+                # Extract filename
+                image_filename = full_image_url.split("/")[-1] if "/" in full_image_url else "selfie.png"
+
+                # Add to chat history
+                st.session_state.messages.append({
+                    "role": "assistant",
+                    "content": f"📸 {soul_id}'s selfie is here!\n\nAt {landmark_key} in {selfie_city}, feeling {selfie_mood}\n\n![Selfie]({full_image_url})",
+                    "time": datetime.now().strftime("%Y-%m-%d"),
+                    "image_url": full_image_url,
+                    "image_filename": image_filename
+                })
+
+                with col_chat:
+                    st.success(f"✅ Selfie image generated successfully! Landmark: {landmark_key}")
+                    st.image(full_image_url, caption=f"{soul_id} at {landmark_key}", use_container_width=True)
+                    st.markdown(f"[📥 Download Image]({full_image_url})")
+            else:
+                st.error("❌ Generation failed: No image URL returned")
+        else:
+            st.error("❌ Selfie image generation failed")
+
+# ============================================
+# 处理 Soul 自拍视频生成按钮
+# ============================================
+if generate_selfie_video_btn:
+    logger.info(f"[Generate Selfie Video] Soul: {soul_id}, City: {selfie_city}, Mood: {selfie_mood}")
+
+    with st.spinner(f"🎬 Generating {soul_id}'s {selfie_mood} selfie video in {selfie_city}... (may take a few minutes)"):
+        generator = get_image_video_generator("http://34.148.94.241:8000")
+        result = generator.generate_selfie_video(
+            soul_id=soul_id,
+            city_key=selfie_city,
+            mood=selfie_mood,
+            user_id=user_id
+        )
+
+        if result:
+            gif_url = result.get("gif_url", "")
+            mp4_url = result.get("mp4_url", "")
+            variant_id = result.get("variant_id")
+            landmark_key = result.get("landmark_key", "")
+
+            if gif_url:
+                # Extract filename
+                gif_filename = gif_url.split("/")[-1] if "/" in gif_url else "selfie.gif"
+
+                # Add to chat history
+                st.session_state.messages.append({
+                    "role": "assistant",
+                    "content": f"🎬 {soul_id}'s selfie video is here!\n\nAt {landmark_key} in {selfie_city}, feeling {selfie_mood}\n\n![{gif_filename}]({gif_url})",
+                    "time": datetime.now().strftime("%Y-%m-%d"),
+                    "image_url": gif_url,
+                    "image_filename": gif_filename
+                })
+
+                with col_chat:
+                    st.success(f"✅ Selfie video generated successfully! Landmark: {landmark_key}")
+                    st.image(gif_url, caption=f"{soul_id} at {landmark_key}", use_container_width=True)
+                    if mp4_url:
+                        st.markdown(f"[📥 Download GIF]({gif_url}) | [📥 Download MP4]({mp4_url})")
+                    else:
+                        st.markdown(f"[📥 Download GIF]({gif_url})")
+            else:
+                st.error("❌ Generation failed: No video URL returned")
+        else:
+            st.error("❌ Selfie video generation failed")
