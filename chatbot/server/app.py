@@ -291,8 +291,8 @@ with st.sidebar:
         "😢 Sad": "sad",
         "🤩 Excited": "excited",
         "😌 Calm": "calm",
-        "💕 Romantic": "romantic",
-        "🏃 Adventurous": "adventurous"
+        "🔮 Mysterious": "mysterious",
+        "🎮 Playful": "playful"
     }
     selected_mood_label = st.selectbox(
         "💭 Current Mood",
