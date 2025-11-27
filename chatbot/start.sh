@@ -88,6 +88,8 @@ cd "$PROJECT_DIR"
 
 # 设置环境变量
 export PYTHONPATH="."
+# PUBLIC_IMAGEGEN_URL: 指向 imageGen 服务或静态文件服务器的公网地址
+export PUBLIC_IMAGEGEN_URL=${PUBLIC_IMAGEGEN_URL:-http://34.148.94.241:8000}
 
 # 启动后端服务（使用 setsid + nohup 确保完全从终端分离）
 echo -e "${YELLOW}🚀 启动 chatbot 后端服务 (port $BACKEND_PORT)...${NC}"
@@ -141,6 +143,7 @@ echo -e "${GREEN}后端地址: http://34.148.51.133:$BACKEND_PORT${NC}"
 echo -e "${GREEN}后端文档: http://34.148.51.133:$BACKEND_PORT/docs${NC}"
 echo ""
 echo -e "${GREEN}前端地址: http://34.148.51.133:$FRONTEND_PORT${NC}"
+echo -e "${GREEN}ImageGen/Static 服务 (PUBLIC_IMAGEGEN_URL): ${PUBLIC_IMAGEGEN_URL}${NC}"
 echo ""
 echo -e "${GREEN}后端日志: $LOG_FILE_BACKEND${NC}"
 echo -e "${GREEN}前端日志: $LOG_FILE_FRONTEND${NC}"
