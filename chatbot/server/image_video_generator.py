@@ -144,7 +144,7 @@ class ImageVideoGenerator:
         Args:
             soul_id: Soul ID
             city_key: 城市键（paris, tokyo, newyork, london, rome）
-            mood: 心情（happy, sad, excited, calm, romantic, adventurous）
+            mood: 心情（happy, sad, excited, calm, mysterious, playful）
             user_id: 用户 ID
         
         Returns:

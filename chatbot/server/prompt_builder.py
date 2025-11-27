@@ -137,8 +137,8 @@ class PromptBuilder:
             "伤心": "sad", "sad": "sad", "难过": "sad",
             "兴奋": "excited", "excited": "excited",
             "平静": "calm", "calm": "calm",
-            "浪漫": "romantic", "romantic": "romantic",
-            "冒险": "adventurous", "adventurous": "adventurous"
+            "神秘": "mysterious", "mysterious": "mysterious",
+            "俏皮": "playful", "playful": "playful", "调皮": "playful"
         }
         
         # 尝试匹配城市和心情
